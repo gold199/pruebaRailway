@@ -73,7 +73,7 @@ i18next
 app.use(i18nextHttpMiddleware.handle(i18next));
 
 // Middleware para detectar el User Agent y filtrar los accesos de agentes de IA
-// app.use(controlUserAgent.filterIA);
+app.use(controlUserAgent.filterIA);
 // app.use(controlUserAgent.apiLimiter);
 
 
