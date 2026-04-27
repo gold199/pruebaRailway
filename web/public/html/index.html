@@ -100,12 +100,12 @@
 
     <script type="module">
 
-        const API_URL = "http://localhost:3000";
+        const API_URL = "pruebarailway2-production.up.railway.app";
 
         // --- CARGAR LIBROS EN CARRUSEL (4 por slide) ---
         async function loadFeaturedBooks() {
             try {
-                const response = await fetch("http://localhost:3000/books");
+                const response = await fetch("pruebarailway2-production.up.railway.app/books");
                 const books = await response.json();
                 const carouselInner = document.getElementById("carouselContent");
                 carouselInner.innerHTML = "";
@@ -146,10 +146,10 @@
         // --- CARGAR AUTORES ---
         async function loadFeaturedAuthors() {
             try {
-                const responseAuthors = await fetch("http://localhost:3000/authors");
+                const responseAuthors = await fetch("pruebarailway2-production.up.railway.app/authors");
                 const authors = await responseAuthors.json();
 
-                const responseCounts = await fetch("http://localhost:3000/bookAuthor/count");
+                const responseCounts = await fetch("pruebarailway2-production.up.railway.app/bookAuthor/count");
 
                 // Validación para evitar el error del SyntaxError (HTML en vez de JSON)
                 const contentType = responseCounts.headers.get("content-type");
