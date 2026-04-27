@@ -73,7 +73,7 @@ i18next
 app.use(i18nextHttpMiddleware.handle(i18next));
 
 // Middleware para detectar el User Agent y filtrar los accesos de agentes de IA
-app.use(controlUserAgent.filterIA);
+// app.use(controlUserAgent.filterIA);
 // app.use(controlUserAgent.apiLimiter);
 
 
@@ -95,11 +95,13 @@ app.use("/genres", genreRoutes);
 app.use("/cart", cartRoutes);
 app.use("/review", reviewRoutes);
 
-redis.startRedis().catch(err => {
-  console.error("Redis error:", err);
+await redis.startRedis();
+
+app.get("/", (req, res) => {
+  res.send("OK");
 });
 
 const port = process.env.PORT || 3001;
-app.listen(port, () => {
-  console.log(`Web corriendo en ${port}`);
+app.listen(port, "0.0.0.0",() => {
+  console.log(`Web corriendo en http://localhost:${port}`);
 });
