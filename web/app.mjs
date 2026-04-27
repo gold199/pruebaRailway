@@ -95,9 +95,11 @@ app.use("/genres", genreRoutes);
 app.use("/cart", cartRoutes);
 app.use("/review", reviewRoutes);
 
-await redis.startRedis();
+redis.startRedis().catch(err => {
+  console.error("Redis error:", err);
+});
 
-const port = process.env.PORT;
+const port = process.env.PORT || 3001;
 app.listen(port, () => {
-  console.log(`Web corriendo en http://localhost:${port}`);
+  console.log(`Web corriendo en ${port}`);
 });
