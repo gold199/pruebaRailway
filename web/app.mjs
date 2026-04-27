@@ -97,10 +97,6 @@ app.use("/review", reviewRoutes);
 
 await redis.startRedis();
 
-app.get("/", (req, res) => {
-  res.send("OK");
-});
-
 const port = process.env.PORT || 3001;
 app.listen(port, "0.0.0.0",() => {
   console.log(`Web corriendo en http://localhost:${port}`);
