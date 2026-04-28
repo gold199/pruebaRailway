@@ -2,7 +2,7 @@ import axios from "axios";
 import redis from "../controllers/RedisController.mjs";
 
 const apiClient = axios.create({
-  baseURL: "https://pruebarailway2-production.up.railway.app",
+  baseURL: "https://pruebarailway2-production-afbe.up.railway.app",
   headers: {
     "Content-Type": "application/json",
   },
