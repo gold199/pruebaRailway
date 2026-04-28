@@ -100,12 +100,12 @@
 
     <script type="module">
 
-        const API_URL = "https://pruebarailway2-production.up.railway.app";
+        const API_URL = "https://pruebarailway2-production-05bf.up.railway.app";
 
         // --- CARGAR LIBROS EN CARRUSEL (4 por slide) ---
         async function loadFeaturedBooks() {
             try {
-                const response = await fetch("https://pruebarailway2-production.up.railway.app/books");
+                const response = await fetch("https://pruebarailway2-production-05bf.up.railway.app/books");
                 const books = await response.json();
                 const carouselInner = document.getElementById("carouselContent");
                 carouselInner.innerHTML = "";
@@ -146,10 +146,10 @@
         // --- CARGAR AUTORES ---
         async function loadFeaturedAuthors() {
             try {
-                const responseAuthors = await fetch("https://pruebarailway2-production.up.railway.app/authors");
+                const responseAuthors = await fetch("https://pruebarailway2-production-05bf.up.railway.app/authors");
                 const authors = await responseAuthors.json();
 
-                const responseCounts = await fetch("https://pruebarailway2-production.up.railway.app/bookAuthor/count");
+                const responseCounts = await fetch("https://pruebarailway2-production-05bf.up.railway.app/bookAuthor/count");
 
                 // Validación para evitar el error del SyntaxError (HTML en vez de JSON)
                 const contentType = responseCounts.headers.get("content-type");

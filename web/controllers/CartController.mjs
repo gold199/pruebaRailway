@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const apiClient = axios.create({
-  baseURL: "https://pruebarailway2-production.up.railway.app",
+  baseURL: "https://pruebarailway2-production-05bf.up.railway.app",
   withCredentials: true,
 });
 
@@ -38,10 +38,6 @@ async function addToCart(req, res) {
 // --- ESTE ES EL CONTROLADOR DE LA WEB (Donde está viewCart) ---
 
 async function viewCart(req, res) {
-  console.log("Se ha entrado en el carrito");
-
-  const user = req.session.user;
-
   let cart = req.signedCookies.cart || [];
   let total = 0;
 
@@ -96,32 +92,10 @@ async function viewCart(req, res) {
     }
   }
 
-  let availableAddresses = [];
-  if (user) {
-    if (
-      user.default_address &&
-      user.default_address !== "Pendiente de completar"
-    ) {
-      availableAddresses.push({
-        id: "default",
-        text: user.default_address,
-        label: "Principal",
-      });
-    }
-    if (user.optional_address && user.optional_address.trim() !== "") {
-      availableAddresses.push({
-        id: "optional",
-        text: user.optional_address,
-        label: "Secundaria",
-      });
-    }
-  }
-
   // 5. Renderizamos la vista con los datos procesados
   res.render("partials/cartView", {
     cart,
-    user: req.session.user || null,
-    addresses: availableAddresses, // <--- Nueva variable para el EJS
+    user: req.session.user,
     total: total.toFixed(2),
     error:
       cart.length > 0 && total === 0
@@ -131,129 +105,51 @@ async function viewCart(req, res) {
 }
 
 // --- CHECKOUT (ADAPTADO) ---
-
 async function checkout(req, res) {
   const firebaseToken = req.body.firebase_token;
-  const { shipping_address } = req.body;
   const cart = req.signedCookies.cart || [];
 
-  // 1. Validaciones de seguridad básicas
   if (!firebaseToken) return res.redirect("/login");
-
-  if (!shipping_address) {
-    // En lugar de un 400 seco, es mejor devolver al usuario al carrito con un mensaje
-    return res
-      .status(400)
-      .send("Por favor, selecciona una dirección de envío.");
-  }
-
-  if (cart.length === 0) return res.redirect("/cart/view");
+  if (cart.length === 0)
+    return res.render("partials/cartView", {
+      cart: [],
+      total: 0,
+      error: "Vacío",
+    });
 
   try {
-    // 2. Obtener datos actualizados de los libros (para validación de precio/existencia)
     const bookIds = cart.map((item) => item.book_id);
+
+    // LLAMADA OPTIMIZADA
     const booksResponse = await apiClient.get("/books/carrusel", {
       params: { ids: bookIds.join(",") },
     });
 
     const booksMap = new Map(booksResponse.data.map((b) => [Number(b.id), b]));
-    let totalCalculado = 0;
-
-    // Enriquecemos para calcular el total exacto antes de enviar a la API de órdenes
-    cart.forEach((item) => {
+    let total = 0;
+    const enrichedCart = cart.map((item) => {
       const book = booksMap.get(Number(item.book_id));
-      if (book) {
-        totalCalculado += Number(book.price) * item.quantity;
-      }
+      total += (book ? Number(book.price) : 0) * item.quantity;
+      return { ...item, book: book || { title: "No disponible", price: 0 } };
     });
 
-    // 3. Petición de creación de pedido
-    // IMPORTANTE: Enviamos la shipping_address y el total calculado
-    const response = await apiClient.post(
+    // Petición de creación de pedido
+    await apiClient.post(
       "/orders",
-      {
-        items: cart,
-        shipping_address: shipping_address, // <-- Enviamos la dirección seleccionada
-        total: totalCalculado.toFixed(2), // <-- Enviamos el total para validación en el servidor
-      },
+      { items: cart },
       {
         headers: { Authorization: `Bearer ${firebaseToken}` },
       },
     );
 
-    // 4. Éxito: Solo limpiamos el carrito si la orden se creó correctamente en la DB
-    if (response.status === 201 || response.status === 200) {
-      res.clearCookie("cart");
-      // Opcional: pasar un flag de éxito para mostrar un Toast en la siguiente vista
-      return res.redirect("/user/myOrders?success=true");
-    }
+    var asd = await apiClient.post("/orders/payment",{items: cart, user: req.session.user})
+    res.clearCookie("cart");
+    return res.redirect(asd.data.url)
+
   } catch (error) {
-    console.error(
-      "Error detallado en Checkout:",
-      error.response?.data?.message || error.message,
-    );
-
-    // Si el error es falta de stock (asumiendo que tu API devuelve 409 o similar)
-    if (error.response?.status === 409) {
-      return res
-        .status(409)
-        .send("Lo sentimos, uno de los productos ya no tiene stock.");
-    }
-
-    res
-      .status(500)
-      .send("Error procesando la compra. Por favor, inténtalo de nuevo.");
+    // Manejo de errores (el que ya tenías es correcto)
+    res.status(500).send("Error en el proceso de compra");
   }
 }
-
-// async function checkout(req, res) {
-//   const firebaseToken = req.body.firebase_token;
-//   const { shipping_address } = req.body; // Viene del radio button del EJS
-//   const cart = req.signedCookies.cart || [];
-
-//   if (!firebaseToken) return res.redirect("/login");
-//   if (!shipping_address) {
-//     // Si el usuario no eligió dirección, podrías devolverlo con error
-//     return res.status(400).send("Debes seleccionar una dirección de envío");
-//   }
-//   if (cart.length === 0)
-//     return res.render("partials/cartView", {
-//       cart: [],
-//       total: 0,
-//       error: "Vacío",
-//     });
-
-//   try {
-//     const bookIds = cart.map((item) => item.book_id);
-
-//     // LLAMADA OPTIMIZADA
-//     const booksResponse = await apiClient.get("/books/carrusel", {
-//       params: { ids: bookIds.join(",") },
-//     });
-
-//     const booksMap = new Map(booksResponse.data.map((b) => [Number(b.id), b]));
-//     let total = 0;
-//     const enrichedCart = cart.map((item) => {
-//       const book = booksMap.get(Number(item.book_id));
-//       total += (book ? Number(book.price) : 0) * item.quantity;
-//       return { ...item, book: book || { title: "No disponible", price: 0 } };
-//     });
-
-//     // Petición de creación de pedido
-//     await apiClient.post(
-//       "/orders",
-//       { items: cart },
-//       {
-//         headers: { Authorization: `Bearer ${firebaseToken}` },
-//       },
-//     );
-
-//     res.clearCookie("cart");
-//     return res.redirect("/user/myOrders");
-//   } catch (error) {
-//     // Manejo de errores (el que ya tenías es correcto)
-//     res.status(500).send("Error en el proceso de compra");
-//   }
-// }
 
 export default { addToCart, viewCart, checkout };
