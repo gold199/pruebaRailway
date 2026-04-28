@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const apiClient = axios.create({
-  baseURL: "pruebarailway2-production-afbe.up.railway.app",
+  baseURL: "pruebarailway2-production-05bf.up.railway.app",
   withCredentials: true,
 });
 
