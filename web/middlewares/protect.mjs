@@ -1,27 +1,124 @@
 // web/middleware/protect.mjs
+
+import { getAuthenticatedClient } from "../utils/apiClient.mjs";
+import redisController from "../controllers/RedisController.mjs";
+
 async function protect(req, res, next) {
-  if (req.session.user) {
-    console.log("Autenticado");
-    console.log(req.session.user);
-    res.locals.user = req.session.user;
-    res.locals.isAdmin = req.session.user.role === "ADMIN";
-    next();
-  } else {
-    console.log("No autenticado");
-    console.log(req.session.user);
+  // 1. Verificación rápida de sesión local
+  if (!req.session.user || !req.session.idToken) {
     req.session.returnTo = req.originalUrl;
-    res.redirect("/login");
+    return res.redirect("/login");
+  }
+
+  try {
+    const userId = req.session.user.id || req.session.user.user?.id;
+    const redisClient = await redisController.returnRedisClient();
+    const cacheKey = `user:validation:${userId}`;
+
+    // 2. INTENTO DE LECTURA DESDE REDIS (Caché de validación)
+    const cachedValidation = await redisClient.get(cacheKey);
+
+    let freshUser;
+
+    if (cachedValidation) {
+      // Si está en Redis, confiamos en esos datos y ahorramos la llamada a la API
+      freshUser = JSON.parse(cachedValidation);
+    } else {
+      // 3. SI NO ESTÁ EN CACHÉ, LLAMADA A LA API
+      const api = getAuthenticatedClient(req.session.idToken);
+      const response = await api.get(`/users/me/${userId}`);
+
+      // Normalizamos el objeto (quitamos el envoltorio {message, user})
+      freshUser = response.data.user || response.data;
+
+      // 4. GUARDAR EN REDIS (ej. 5 o 10 minutos)
+      // Esto evita llamar a la API en cada clic, pero re-valida periódicamente
+      await redisClient.setEx(cacheKey, 600, JSON.stringify(freshUser));
+    }
+
+    // 5. Validación de cuenta activa (Incluso con caché, esto se chequea)
+    if (freshUser.deleted_at) {
+      console.warn(
+        `Intento de acceso de usuario desactivado: ${freshUser.email}`,
+      );
+      return destroySession(req, res, "Su cuenta ha sido desactivada.");
+    }
+
+    // 6. Sincronización de datos para la vista y siguiente middleware
+    req.session.user = freshUser;
+    res.locals.user = freshUser;
+    res.locals.isAdmin = freshUser.role === "ADMIN";
+
+    next();
+  } catch (error) {
+    console.error("Error en protect middleware:", error.message);
+
+    // Si la API dice explícitamente que el token no vale, fuera.
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      return destroySession(req, res, "Sesión inválida o caducada.");
+    }
+
+    // Si la API está caída pero tenemos al usuario en sesión, le dejamos pasar
+    // como medida de "Gracious Degradation", pero limpiando el anidamiento.
+    const fallbackUser = req.session.user.user || req.session.user;
+    res.locals.user = fallbackUser;
+    res.locals.isAdmin = fallbackUser?.role === "ADMIN";
+    next();
   }
 }
 
+// Función auxiliar para limpiar sesión y cookies
+function destroySession(req, res, message) {
+  return req.session.destroy(() => {
+    res.clearCookie("connect.sid");
+    res.redirect(`/login?error=${encodeURIComponent(message)}`);
+  });
+}
+
+// async function protect(req, res, next) {
+//   if (req.session.user) {
+//     console.log("Autenticado");
+//     console.log(req.session.user);
+//     res.locals.user = req.session.user;
+//     res.locals.isAdmin = req.session.user.role === "ADMIN";
+//     next();
+//   } else {
+//     console.log("No autenticado");
+//     console.log(req.session.user);
+//     req.session.returnTo = req.originalUrl;
+//     res.redirect("/login");
+//   }
+// }
+
 async function requireAdmin(req, res, next) {
-  if (req.session.user && req.session.user.role === "ADMIN") {
-    console.log("Admin");
+  // Usamos res.locals que ya fue inyectado y validado por protect()
+  if (res.locals.user && res.locals.isAdmin) {
+    console.log("Acceso concedido: Admin");
     next();
   } else {
-    console.log("No admin");
+    console.log("Acceso denegado: No es administrador");
     res.status(403).render("errors/403");
   }
 }
 
-export default { protect, requireAdmin };
+async function requireFreshToken(req, res, next) {
+  const token = req.body?.firebase_token || req.headers["x-firebase-token"];
+
+  if (!token) {
+    // Si es una petición de formulario, redirige con error
+    if (req.accepts("html")) {
+      req.session.flash = {
+        type: "error",
+        message: "Sesión de seguridad requerida. Por favor recarga la página.",
+      };
+      return res.redirect("back");
+    }
+    return res.status(401).json({ message: "Token de seguridad requerido" });
+  }
+
+  // Guardamos el token fresco en la sesión para usarlo en el controlador
+  req.session.idToken = token;
+  next();
+}
+
+export default { protect, requireAdmin, requireFreshToken };

@@ -1,12 +1,68 @@
 import apiClient from "../utils/apiClient.mjs";
 import { getAuthenticatedClient } from "../utils/apiClient.mjs";
-import redis from "../controllers/RedisController.mjs";
+import redisController from "./RedisController.mjs";
 
-export const getManageBooks = (req, res) => {
-  res.render("admin/libros", {
-    title: "Gestión de Libros",
-  });
-};
+let redisClient = null;
+
+async function getManageBooks(req, res) {
+  try {
+    // Definimos el cliente de redis
+    redisClient = await redisController.returnRedisClient();
+
+    const page = req.query.page || 1;
+    const q = req.query.q || "";
+    const maxPrice = req.query.maxPrice || "";
+    const genre = req.query.genre || "";
+    const author = req.query.author || "";
+    const deleted = req.query.deleted || "false";
+
+    const [cachedGenres, cachedAuthors] = await Promise.all([
+      redisClient.get("AllGenres"),
+      redisClient.get("AllAuthors"),
+    ]);
+
+    let genres = cachedGenres ? JSON.parse(cachedGenres) : null;
+    let authors = cachedAuthors ? JSON.parse(cachedAuthors) : null;
+
+    if (!genres || !authors) {
+      const [genresResponse, authorsResponse] = await Promise.all([
+        !genres ? apiClient.get("/genres") : null,
+        !authors ? apiClient.get("/authors") : null,
+      ]);
+
+      if (genresResponse) {
+        genres = genresResponse.data.data;
+        await redisClient.set("AllGenres", JSON.stringify(genres), {
+          EX: 3600,
+        });
+      }
+
+      if (authorsResponse) {
+        authors = authorsResponse.data;
+        await redisClient.set("AllAuthors", JSON.stringify(authors), {
+          EX: 3600,
+        });
+      }
+    }
+
+    const booksResponse = await apiClient.get(`/books`, {
+      params: { page, q, maxPrice, genre, author, deleted },
+    });
+
+    res.render("admin/books_list", {
+      books: booksResponse.data.data,
+      genres: genres,
+      authors: authors,
+      currentPage: booksResponse.data.currentPage,
+      totalPages: booksResponse.data.totalPages,
+      query: req.query,
+      user: req.session.user || null,
+    });
+  } catch (error) {
+    console.error("Error al obtener libros: ", error);
+    res.status(500).render("error", { message: "Error al cargar el catálogo" });
+  }
+}
 
 export const getForm = (req, res) => {
   const { type } = req.params;
@@ -18,31 +74,28 @@ export const getForm = (req, res) => {
 
 async function getManageOrders(req, res) {
   try {
-    var orders = null
     const api = getAuthenticatedClient(req.session.idToken);
-    const redisClient = redis.returnRedisClient()
-    const redisData = await redisClient.get("AllOrders")
+    const response = await api.get("/orders");
+    const allOrders = response.data;
 
-    // 1. Pedimos los pedidos comprobando la cache en redis
-    if(!redisData){
-      const response = await api.get("/orders");
-      orders = response.data;
-      await redisClient.set("AllOrders",JSON.stringify(orders))
-    }else{
-      orders = JSON.parse(redisData)
-    }
+    // ── Paginación ──────────────────────────────────────
+    const PAGE_SIZE = 10;
+    const currentPage = Math.max(1, parseInt(req.query.page) || 1);
+    const totalPages = Math.ceil(allOrders.length / PAGE_SIZE);
+    const pageOrders = allOrders.slice(
+      (currentPage - 1) * PAGE_SIZE,
+      currentPage * PAGE_SIZE,
+    );
 
-    
-   
-
-    const batchSize = 5; // Límite de seguridad para el pool
-    for (let i = 0; i < orders.length; i += batchSize) {
-      const batch = orders.slice(i, i + batchSize);
+    // Solo cargamos los items de la página actual
+    const batchSize = 5;
+    for (let i = 0; i < pageOrders.length; i += batchSize) {
+      const batch = pageOrders.slice(i, i + batchSize);
       await Promise.all(
         batch.map(async (order) => {
           try {
             const resItems = await api.get("/orderItems/" + order.id);
-            order.items = resItems.data; // Aquí se inyectan los OrderItem
+            order.items = resItems.data;
           } catch (err) {
             order.items = [];
           }
@@ -50,44 +103,109 @@ async function getManageOrders(req, res) {
       );
     }
 
-    // 2. En lugar de un FOR con AWAIT, lanzamos todas las peticiones a la vez
-    // Promise.all permite que el pooler de Supabase gestione la cola
-    // await Promise.all(
-    //   orders.map(async (order) => {
-    //     try {
-    //       const resItems = await api.get("/orderItems/" + order.id);
-    //       console.log(resItems.data);
-    //       order.items = resItems.data;
-    //     } catch (err) {
-    //       order.items = []; // Evitamos que un error en un pedido rompa todo
-    //     }
-    //   }),
-    // );
+    const globalStats = {
+      total: allOrders.length,
+      pending: allOrders.filter((o) => o.status === "PENDIENTE").length,
+      processing: allOrders.filter((o) => o.status === "PROCESANDO" || o.status === "ENVIADO").length,
+      revenue: allOrders.reduce((acc, o) => acc + parseFloat(o.total || 0), 0).toFixed(2),
+    };
 
-    res.render("admin/orders", { orders, lang: req.session.lang });
+    res.render("admin/orders", {
+      orders: pageOrders,
+      totalOrders: allOrders.length,
+      globalStats,
+      currentPage,
+      totalPages,
+      lang: req.session.lang,
+      isPending: false,
+    });
   } catch (error) {
     console.error("Error al cargar pedidos:", error);
     res.render("errors/500", { error: "No se pudieron cargar los pedidos" });
   }
 }
 
-async function listUsers(req, res) {
+async function getPendingOrders(req, res) {
   try {
     const api = getAuthenticatedClient(req.session.idToken);
-    var user = null
-    const redisClient = redis.returnRedisClient()
-    const redisData = await redisClient.get("AllUser")
+    const response = await api.get("/orders");
+    const allOrders = response.data;
 
-    if(!redisData){
-      const response = await api.get("/users");
-      user = response.data;
-      await redisClient.set("AllUser",JSON.stringify(user))
-    }else{
-      user = JSON.parse(redisData)
+    // Filtrar solo los pendientes
+    const pendingOrders = allOrders.filter((o) => o.status === "PENDIENTE");
+
+    // ── Paginación ──────────────────────────────────────
+    const PAGE_SIZE = 10;
+    const currentPage = Math.max(1, parseInt(req.query.page) || 1);
+    const totalPages = Math.ceil(pendingOrders.length / PAGE_SIZE);
+    const pageOrders = pendingOrders.slice(
+      (currentPage - 1) * PAGE_SIZE,
+      currentPage * PAGE_SIZE,
+    );
+
+    // Solo cargamos los items de la página actual
+    const batchSize = 5;
+    for (let i = 0; i < pageOrders.length; i += batchSize) {
+      const batch = pageOrders.slice(i, i + batchSize);
+      await Promise.all(
+        batch.map(async (order) => {
+          try {
+            const resItems = await api.get("/orderItems/" + order.id);
+            order.items = resItems.data;
+          } catch (err) {
+            order.items = [];
+          }
+        }),
+      );
+    }
+
+    const globalStats = {
+      total: allOrders.length,
+      pending: allOrders.filter((o) => o.status === "PENDIENTE").length,
+      processing: allOrders.filter((o) => o.status === "PROCESANDO" || o.status === "ENVIADO").length,
+      revenue: allOrders.reduce((acc, o) => acc + parseFloat(o.total || 0), 0).toFixed(2),
+    };
+
+    res.render("admin/orders", {
+      orders: pageOrders,
+      totalOrders: pendingOrders.length,
+      globalStats,
+      currentPage,
+      totalPages,
+      lang: req.session.lang,
+      isPending: true,
+    });
+  } catch (error) {
+    console.error("Error al cargar pedidos pendientes:", error);
+    res.render("errors/500", {
+      error: "No se pudieron cargar los pedidos pendientes",
+    });
+  }
+}
+
+async function listUsers(req, res) {
+  try {
+    redisClient = await redisController.returnRedisClient();
+
+    const api = getAuthenticatedClient(req.session.idToken);
+
+    const [cachedUsers] = await Promise.all([redisClient.get("AllUsers")]);
+
+    let users = cachedUsers ? JSON.parse(cachedUsers) : null;
+
+    if (!users) {
+      const [usersResponse] = await Promise.all([
+        !users ? api.get("/users") : null,
+      ]);
+
+      if (usersResponse) {
+        users = usersResponse.data;
+        await redisClient.set("AllUsers", JSON.stringify(users), { EX: 600 }); //Duración de la caché: 5 minutos
+      }
     }
 
     res.render("admin/users_list", {
-      users: user,
+      users: users,
       message: req.query.msg || null,
     });
   } catch (error) {
@@ -105,10 +223,26 @@ async function getCreateUserForm(req, res) {
 
 async function createUser(req, res) {
   try {
+    redisClient = await redisController.returnRedisClient();
+
     const api = getAuthenticatedClient(req.session.idToken);
     console.log(req.session.idToken);
+
     const response = await api.post("/users", req.body);
     const user = response.data;
+
+    try {
+      await Promise.all([
+        redisClient.del("AllUsers"),
+        redisClient.del("stats:users_count"),
+      ]);
+    } catch (error) {
+      console.error(
+        "Error al invalidar la caché de usuarios en createUser:",
+        error,
+      );
+    }
+
     res.redirect("/admin/users");
   } catch (error) {
     console.error("Error al crear usuario:", error);
@@ -136,9 +270,25 @@ async function getUpdateUserForm(req, res) {
 
 async function updateUser(req, res) {
   try {
+    redisClient = await redisController.returnRedisClient();
+
     const api = getAuthenticatedClient(req.session.idToken);
+
     const response = await api.put(`/users/${req.params.id}`, req.body);
     const user = response.data;
+
+    try {
+      await Promise.all([
+        redisClient.del("AllUsers"),
+        redisClient.del("stats:users_count"),
+      ]);
+    } catch (error) {
+      console.error(
+        "Error al invalidar la caché de usuarios en updateUser:",
+        error,
+      );
+    }
+
     res.redirect("/admin/users");
   } catch (error) {
     console.error("Error al actualizar usuario:", error);
@@ -155,10 +305,28 @@ async function deleteUser(req, res) {
       );
     }
 
-    const userId = req.body.id;
+    redisClient = await redisController.returnRedisClient();
+
+    const { id, mode } = req.body;
+
+    console.log("Id del usuario: " + id);
+    console.log("Mode: " + mode);
+
     const api = getAuthenticatedClient(req.session.idToken);
 
-    await api.delete(`/users/${userId}`);
+    await api.put(`/users/delete/${id}`, { mode });
+
+    try {
+      await Promise.all([
+        redisClient.del("AllUsers"),
+        redisClient.del("stats:users_count"),
+      ]);
+    } catch (error) {
+      console.error(
+        "Error al invalidar la caché de usuarios en deleteUser:",
+        error,
+      );
+    }
 
     res.redirect("/admin/users");
   } catch (error) {
@@ -167,51 +335,130 @@ async function deleteUser(req, res) {
   }
 }
 
+async function reactivateUser(req, res) {
+  try {
+    redisClient = await redisController.returnRedisClient();
+
+    // 1. Obtenemos el ID de los parámetros de la ruta
+    const { id } = req.body;
+
+    console.log("Id para reactivar: " + id);
+
+    // 2. Preparamos el cliente autenticado
+    const api = getAuthenticatedClient(req.session.idToken);
+
+    // 3. Llamamos al API.
+    // Usamos la ruta basada en ID que definimos en el controlador del API:
+    // /users/reactivate/:id (o /users/restore/:id según cómo la hayas nombrado en tus rutas)
+    await api.put(`/users/reactivate/${id}`);
+
+    try {
+      await Promise.all([
+        redisClient.del("AllUsers"),
+        redisClient.del("stats:users_count"),
+      ]);
+    } catch (error) {
+      console.error(
+        "Error al invalidar la caché de usuarios en reactivateUser:",
+        error,
+      );
+    }
+
+    // 4. Si todo va bien, redirigimos con un mensaje de éxito
+    // Nota: Si usas un sistema de flash messages, podrías usarlo aquí
+    res.redirect("/admin/users");
+  } catch (error) {
+    console.error(
+      "Error al restaurar usuario en el Web Controller:",
+      error.message,
+    );
+
+    // Capturamos el mensaje de error que viene del API si existe
+    const errorMessage =
+      error.response?.data?.message || "No se pudo restaurar el usuario";
+
+    res.redirect(`/admin/users?error=${encodeURIComponent(errorMessage)}`);
+  }
+}
+
 async function getDashboard(req, res) {
   if (!req.session.user || req.session.user.role !== "ADMIN") {
     return res.redirect("/login");
   }
 
-  const api = getAuthenticatedClient(req.session.idToken);
+  try {
+    redisClient = await redisController.returnRedisClient();
 
-  var user = null
-  const redisClient = redis.returnRedisClient()
-  const redisData = await redisClient.get("AllUser")
+    // 1. Intentamos recuperar las ESTADÍSTICAS (solo el número)
+    const [cachedUsersCount, cachedOrdersCount] = await Promise.all([
+      redisClient.get("stats:users_count"),
+      redisClient.get("stats:orders_count"),
+    ]);
 
-  if(!redisData){
-    const response = await api.get("/users");
-    user = response.data;
-    await redisClient.set("AllUser",JSON.stringify(user))
-  }else{
-    user = JSON.parse(redisData)
+    let usersCount = cachedUsersCount ? JSON.parse(cachedUsersCount) : null;
+    let ordersCount = cachedOrdersCount ? JSON.parse(cachedOrdersCount) : null;
+
+    // 2. Si alguno no está en caché, vamos a la API
+    if (usersCount === null || ordersCount === null) {
+      const api = getAuthenticatedClient(req.session.idToken);
+
+      const [usersResponse, ordersResponse] = await Promise.all([
+        usersCount === null ? api.get("/users") : Promise.resolve(null),
+        ordersCount === null ? api.get("/orders") : Promise.resolve(null),
+      ]);
+
+      if (usersResponse) {
+        usersCount = usersResponse.data.length;
+        // Guardamos con clave específica de estadística
+        await redisClient.set("stats:users_count", JSON.stringify(usersCount), {
+          EX: 600,
+        });
+      }
+
+      if (ordersResponse) {
+        ordersCount = ordersResponse.data.length;
+        // Guardamos con clave específica de estadística
+        await redisClient.set(
+          "stats:orders_count",
+          JSON.stringify(ordersCount),
+          { EX: 600 },
+        );
+      }
+    }
+
+    // 3. Renderizamos usando las variables que ya tienen datos
+    res.render("admin/dashboard", {
+      title: "Consola de Administración",
+      user: req.session.user,
+      users: usersCount, // Antes pasabas 'users' que venía de "AllUsers"
+      orders: ordersCount, // Antes pasabas 'orders' que venía de "AllOrders"
+    });
+  } catch (error) {
+    console.error("Error en Dashboard:", error);
+    if (error.response?.status === 401)
+      return res.redirect("/login?msg=expirado");
+
+    // Fallback por si todo falla
+    res.render("admin/dashboard", {
+      title: "Consola de Administración",
+      user: req.session.user,
+      users: 0,
+      orders: 0,
+    });
   }
-
-  const users = user.length;
-
-
-  var order = null
-  const redisDataOrder = await redisClient.get("AllOrders")
-
-  if(!redisDataOrder){
-    const response = await api.get("/orders");
-    order = response.data;
-    await redisClient.set("AllOrders",JSON.stringify(order))
-  }else{
-    order = JSON.parse(redisData)
-  }
-
-  const orders = order.length;
-
-  res.render("admin/dashboard", {
-    title: "Consola de Administración",
-    user: req.session.user,
-    users: users,
-    orders: orders,
-  });
 }
 
 async function updateOrderStatus(req, res) {
   try {
+    const urlId = req.params.id;
+    const { orderId, status } = req.body;
+
+    // 2. Validación de consistencia (Seguridad)
+    if (orderId !== urlId) {
+      console.error("Divergencia de IDs detectada en UpdateStatus");
+      return res.redirect("/admin/orders?error=invalid_id");
+    }
+
     const api = getAuthenticatedClient(req.session.idToken);
     const response = await api.put(`/orders/${req.body.orderId}`, req.body);
     const order = response.data;
@@ -224,6 +471,15 @@ async function updateOrderStatus(req, res) {
 
 async function deleteOrder(req, res) {
   try {
+    const urlId = req.params.id;
+    const { orderId, status } = req.body;
+
+    // 2. Validación de consistencia (Seguridad)
+    if (orderId !== urlId) {
+      console.error("Divergencia de IDs detectada en UpdateStatus");
+      return res.redirect("/admin/orders?error=invalid_id");
+    }
+
     const api = getAuthenticatedClient(req.session.idToken);
     const response = await api.delete(`/orders/${req.body.orderId}`);
     const order = response.data;
@@ -237,18 +493,8 @@ async function deleteOrder(req, res) {
 async function getManageReviews(req, res) {
   try {
     const api = getAuthenticatedClient(req.session.idToken);
-
-    var reviews = null
-    const redisData = await redisClient.get("AllReviews")
-
-    if(!redisData){
-      const response = await api.get("/review/all");
-      reviews = response.data;
-      await redisClient.set("AllReviews",JSON.stringify(reviews))
-    }else{
-      reviews = JSON.parse(redisData)
-    }
-
+    const response = await api.get("/review/all");
+    const reviews = response.data;
     console.log(reviews);
     res.render("admin/reviewsTable", {
       reviews: reviews,
@@ -306,7 +552,9 @@ export default {
   getUpdateUserForm,
   updateUser,
   deleteUser,
+  reactivateUser,
   getManageOrders,
+  getPendingOrders,
   getDashboard,
   updateOrderStatus,
   deleteOrder,

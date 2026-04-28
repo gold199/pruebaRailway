@@ -1,17 +1,33 @@
 import { getAuthenticatedClient } from "../utils/apiClient.mjs";
-import redis from "../controllers/RedisController.mjs";
+import jwt from 'jsonwebtoken';
 
 async function getProfile(req, res) {
   // 1. Verificación de seguridad en el controlador web
-  if (!req.session.user || !req.session.idToken) {
+  if (!req.session?.user || !req.session?.idToken) {
     console.log("Sesión no encontrada o token ausente");
     return res.redirect("/login");
   }
+
+  const user = req.session.user;
+  const userId = user.id || user.user?.id; // Intenta leer ambos formatos
+
+  console.log(userId);
+
+  if (!userId) {
+    console.error("Estructura de usuario no reconocida:", user);
+    return res.redirect("/login?error=error_sesion");
+  }
+
+  console.log("Usuario en sesión:", req.session.user);
+  console.log("Id del usuario en sesión:", req.session.user.id);
+  console.log("Token en sesión:", req.session.idToken ? "Presente" : "Ausente");
 
   try {
     const cleanToken = req.session.idToken.replace("Bearer ", "").trim();
 
     const api = getAuthenticatedClient(cleanToken);
+
+    const provider = jwt.decode(req.session.idToken).firebase.sign_in_provider
 
     const response = await api.get("/users/me/" + req.session.user.id);
 
@@ -19,6 +35,7 @@ async function getProfile(req, res) {
       user: req.session.user,
       profile: response.data,
       error: null,
+      provider: provider,
     });
   } catch (error) {
     console.error(
@@ -31,7 +48,7 @@ async function getProfile(req, res) {
       return res.redirect("/login");
     }
 
-    res.render("perfil", {
+    res.render("partials/perfil", {
       user: req.session.user,
       profile: null,
       error:
@@ -53,31 +70,25 @@ async function getPurchaseHistory(req, res) {
     const cleanToken = req.session.idToken.replace("Bearer ", "").trim();
     const api = getAuthenticatedClient(cleanToken);
 
-    var userOrder = null
-    const redisClient = redis.returnRedisClient()
-    const redisData = await redisClient.get("AllUserOrders")
-    console.log(redisData)
-    if(redisData){
-      userOrder = JSON.parse(redisData)
-    }else{
-      const response = await apiClient.get("/orders/user/" + req.session.user.id);
-      userOrder = response.data;
-      await redisClient.set("AllUserOrders", JSON.stringify(userOrder))
-      
-    }
+    console.log("req.session.user.id", req.session.user.id);
 
-    for (let order of userOrder) {
-      const responseItems = await api.get("/orderItems/" + order.id);
-      order.items = responseItems.data;
-    }
+    const response = await api.get("/orders/user/" + req.session.user.id);
+    const orders = response.data || [];
 
-    console.log("orders", userOrder);
-    console.log("orders[0].items", userOrder[0].items);
+    if (orders.length > 0) {
+      for (let order of orders) {
+        const responseItems = await api.get("/orderItems/" + order.id);
+        order.items = responseItems.data;
+      }
+
+      console.log("orders", orders);
+      console.log("orders[0].items", orders[0].items);
+    }
 
     res.render("partials/purchaseHistory", {
       title: "Mis compras",
       user: req.session.user,
-      orders: userOrder,
+      orders: orders,
     });
   } catch (error) {
     console.error("Error en getPurchaseHistory:", error.message);
@@ -104,6 +115,8 @@ async function getEditProfileForm(req, res) {
     // 1. Obtener los datos del usuario
     const response = await api.get("/users/me/" + req.session.user.id);
 
+    console.log(response.data.user);
+
     // 2. Renderizar la plantilla con los datos del usuario
     res.render("partials/editUserProfile", {
       user: response.data.user,
@@ -122,33 +135,49 @@ async function updateProfile(req, res) {
     return res.redirect("/login");
   }
 
+  if (req.session.user.id !== req.body.id) {
+    return res.redirect("/user/profile");
+  }
+
   try {
     console.log("Hemos entrado al controlador de actualizar perfil");
     const cleanToken = req.session.idToken.replace("Bearer ", "").trim();
     const api = getAuthenticatedClient(cleanToken);
 
-    console.log(req.body);
+    console.log(req.body, req.session.user.id);
 
     // 1. Obtener los datos del usuario
     const response = await api.put(
       "/users/profile/" + req.session.user.id,
       req.body,
     );
+
+    console.log(response.data);
+
     const user = response.data.user;
+
+    console.log(user.optional_address);
 
     req.session.user = user;
 
-    console.log(user);
+    // Forzamos la persistencia en Redis
+    req.session.save((err) => {
+      if (err) {
+        console.error("Error guardando en Redis:", err);
+        return res.redirect("/user/profile?error=session_sync");
+      }
 
-    // 2. Renderizar la plantilla con los datos del usuario
-    res.render("partials/perfil", {
-      user: req.session.user,
+      // Solo redirigimos cuando Redis ha confirmado que guardó los datos
+      console.log("Sesión sincronizada en Redis. Redirigiendo...");
+      res.redirect("/user/profile");
     });
   } catch (error) {
     console.error("Error en editProfile:", error.message);
     res.render("partials/editUserProfile", {
-      user: null,
-      error: "Error al cargar los datos del usuario.",
+      user: req.session.user,
+      error:
+        "Error al actualizar los datos: " +
+        (error.response?.data?.message || error.message),
     });
   }
 }
@@ -158,13 +187,23 @@ async function dismissSelf(req, res) {
     return res.redirect("/login");
   }
 
+  const userId = req.body.id;
+  const deleteMode = req.body.mode || "soft"; // 'soft' (por defecto) o 'hard'
+
+  if (userId !== req.session.user.id.toString()) {
+    console.error("Intento de borrar una cuenta que no pertenece a la sesión");
+    return res.redirect("/user/perfil");
+  }
+
   try {
     console.log("Hemos entrado al controlador de eliminar perfil");
     const cleanToken = req.session.idToken.replace("Bearer ", "").trim();
     const api = getAuthenticatedClient(cleanToken);
 
     // 1. Obtener los datos del usuario
-    const response = await api.delete("/users/dismissSelf/" + req.body.id);
+    const response = await api.delete("/users/dismissSelf/" + userId, {
+      data: { mode: deleteMode },
+    });
     req.session.destroy((err) => {
       if (err) {
         console.error("Error al destruir la sesión:", err);
@@ -175,10 +214,14 @@ async function dismissSelf(req, res) {
       res.redirect("/");
     });
   } catch (error) {
-    console.error("Error en editProfile:", error.message);
-    res.render("partials/editUserProfile", {
-      user: null,
-      error: "Error al cargar los datos del usuario.",
+    console.error(
+      "Error en dismissSelf:",
+      error.response?.data || error.message,
+    );
+    res.render("partials/perfil", {
+      user: req.session.user || null,
+      error:
+        "No se pudo procesar la solicitud de eliminación. Contacte con soporte.",
     });
   }
 }
@@ -194,24 +237,15 @@ async function getMyReviews(req, res) {
     const cleanToken = req.session.idToken.replace("Bearer ", "").trim();
     const api = getAuthenticatedClient(cleanToken);
 
-    var userReviews = null
-    const redisClient = redis.returnRedisClient()
-    const redisData = await redisClient.get("AllUserReviews" + req.session.user.id)
-    if(redisData){
-      userReviews = JSON.parse(redisData)
-    }else{
-      const response = await api.get("/review/user/" + req.session.user.id);
-      userReviews = response.data;
-      await redisClient.set("AllUserReviews" + req.session.user.id, JSON.stringify(userReviews))
-      
-    }
+    const response = await api.get("/review/user/" + req.session.user.id);
+    const reviews = response.data;
 
-    console.log("reviews", userReviews);
+    console.log("reviews", reviews);
 
     res.render("partials/myReviews", {
       title: "Mis reseñas",
       user: req.session.user,
-      reviews: userReviews,
+      reviews: reviews,
     });
   } catch (error) {
     console.error("Error en getMyReviews:", error.message);
@@ -224,6 +258,45 @@ async function getMyReviews(req, res) {
   }
 }
 
+async function changeMyPass(req, res) {
+
+  if (!req.session.user || !req.session.idToken) {
+    return res.redirect("/login");
+  }
+
+  try {
+    const cleanToken = req.session.idToken.replace("Bearer ", "").trim();
+    const api = getAuthenticatedClient(cleanToken);
+
+    res.render("partials/ChangePass", {
+      title: "Cambiar Contraseña",
+      user: req.session.user,
+    });
+  } catch (error) {
+    console.error("Error en changeMyPass:", error.message);
+    res.render("/login", {
+      error: "Error al cargar las reseñas.",
+    });
+  }
+}
+
+async function changeMyPassReturn(req, res) {
+
+  if (!req.session.user || !req.session.idToken) {
+    return res.redirect("/login");
+  }
+  try {
+    const cleanToken = req.session.idToken.replace("Bearer ", "").trim();
+    const api = getAuthenticatedClient(cleanToken);
+    res.redirect("/user/profile");
+  } catch (error) {
+    console.error("Error en changeMyPass:", error.message);
+    res.render("/login", {
+      error: "Error al cargar las reseñas.",
+    });
+  }
+}
+
 export default {
   getProfile,
   getPurchaseHistory,
@@ -231,4 +304,6 @@ export default {
   updateProfile,
   dismissSelf,
   getMyReviews,
+  changeMyPass,
+  changeMyPassReturn
 };

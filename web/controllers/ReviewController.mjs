@@ -1,5 +1,4 @@
 import apiClient, { getAuthenticatedClient } from "../utils/apiClient.mjs";
-import redis from "../controllers/RedisController.mjs";
 
 async function createReview(req, res) {
   const origin = req.headers.referer || "/";
@@ -30,22 +29,9 @@ async function getReviewsByBookId(req, res) {
   const client = getAuthenticatedClient(req, res);
 
   try {
-
-    var reviewById = null
-    const redisClient = redis.returnRedisClient()
-    const redisData = await redisClient.get("ReviewById")
-    console.log(redisData)
-    if(redisData){
-      reviewById = JSON.parse(redisData)
-    }else{
-      const response = await apiClient.get(`/review/book/${book_id}`);
-      reviewById = response.data;
-      await redisClient.set("ReviewById", JSON.stringify(reviewById))
-      
-    }
-
+    const response = await client.get(`/review/book/${book_id}`);
     res.render("partials/reviewsTable", {
-      reviews: reviewById,
+      reviews: response.data,
       user: req.session.user || null,
     });
   } catch (error) {
@@ -104,21 +90,9 @@ async function getReviewsByUserId(req, res) {
   const client = getAuthenticatedClient(req, res);
 
   try {
-
-    var userReviews = null
-    const redisClient = redis.returnRedisClient()
-    const redisData = await redisClient.get(`UserReviews${user_id}`)
-    if(redisData){
-      userReviews = JSON.parse(redisData)
-    }else{
-      const response = await api.get(`/review/user/${user_id}`);
-      userReviews = response.data;
-      await redisClient.set(`UserReviews${user_id}`, JSON.stringify(userReviews))
-      
-    }
-
+    const response = await client.get(`/review/user/${user_id}`);
     res.render("partials/reviewsTable", {
-      reviews: userReviews,
+      reviews: response.data,
       user: req.session.user || null,
     });
   } catch (error) {

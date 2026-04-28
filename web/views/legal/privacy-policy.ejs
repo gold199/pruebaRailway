@@ -1,0 +1,31 @@
+<%- include('../layout/header') %>
+
+    <main class="container my-5">
+        <h1 class="mb-4">
+            <%= t('privacy_policy.title') %>
+        </h1>
+        <section class="card p-4 shadow-sm">
+            <p>
+                <strong>
+                    <%= t('privacy_policy.purpose_title') %>
+                </strong>
+                <%= t('privacy_policy.purpose_text') %>
+            </p>
+
+            <p>
+                <strong>
+                    <%= t('privacy_policy.storage_title') %>
+                </strong>
+                <%= t('privacy_policy.storage_text') %>
+            </p>
+
+            <p>
+                <strong>
+                    <%= t('privacy_policy.rights_title') %>
+                </strong>
+                <%= t('privacy_policy.rights_text') %>
+            </p>
+        </section>
+    </main>
+
+    <%- include('../layout/footer') %>

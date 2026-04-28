@@ -1,6 +1,8 @@
 // web/controllers/PublisherController.mjs
 import apiClient, { getAuthenticatedClient } from "../utils/apiClient.mjs";
-import redis from "../controllers/RedisController.mjs";
+import redisController from "../controllers/RedisController.mjs";
+
+let redisClient = null;
 
 // --- MIDDLEWARES / HELPERS INTERNOS ---
 
@@ -20,20 +22,26 @@ async function publisher(req, res, next) {
 
 async function getPublishers(req, res, next) {
   try {
+    // Definimos el cliente de redis
 
-    var publishers = null
-    const redisClient = redis.returnRedisClient()
-    const redisData = await redisClient.get("AllPublishers")
+    redisClient = await redisController.returnRedisClient();
 
-    if(redisData){
-      publishers = JSON.parse(redisData)
-    }else{
+    // Verificamos si ya hay datos en la cache de redis
+
+    const redisData = await redisClient.get("AllPublishers");
+
+    if (redisData) {
+      res.locals.publishers = JSON.parse(redisData);
+    } else {
+      // Si no hay cache se recogen todas las editoriales y se almacenan en redis, con un TTL de 1 hora.
+
       const response = await apiClient.get("/publishers");
-      publishers = response.data;
-      await redisClient.set("AllPublishers", JSON.stringify(publishers))
-      
-    }    
-    res.locals.publishers = publishers;
+      const publishers = response.data;
+      await redisClient.set("AllPublishers", JSON.stringify(publishers), {
+        EX: 3600,
+      });
+    }
+
     next();
   } catch (error) {
     console.error("Error cargando editoriales:", error);
@@ -64,14 +72,16 @@ async function getPublishers(req, res, next) {
 async function showAllPublishers(req, res, next) {
   try {
     const page = req.query.page || 1;
-    const limit = 4; 
+    const limit = 4;
 
-    const response = await apiClient.get(`/publishers?page=${page}&limit=${limit}`);
+    const response = await apiClient.get(
+      `/publishers?page=${page}&limit=${limit}`,
+    );
 
     res.locals.user = req.session.user || null;
-    
+
     res.render("partials/publishersTable", {
-      publishers: response.data.data,      
+      publishers: response.data.data,
       currentPage: response.data.currentPage,
       totalPages: response.data.totalPages,
       user: res.locals.user,
@@ -90,10 +100,17 @@ async function showAllPublishers(req, res, next) {
 async function getPublisherById(req, res, next) {
   try {
     const { id } = req.params;
-    const [pubRes, booksRes] = await Promise.all([
-      apiClient.get(`/publishers/${id}`),
-      apiClient.get(`/books/publisher/${id}`),
-    ]);
+
+    const pubRes = await apiClient.get(`/publishers/${id}`);
+    console.log(pubRes.data);
+
+    if (!pubRes.data || !pubRes.data.id) {
+      return res.status(404).render("errors/404", {
+        message: "Editorial no encontrada",
+      });
+    }
+
+    const booksRes = await apiClient.get(`/books/publisher/${id}`);
 
     res.render("partials/publisher_detalle", {
       publisher: pubRes.data,
@@ -126,8 +143,12 @@ async function createPublisher(req, res) {
     // Limpieza de Token para evitar 401
     const cleanToken = req.session.idToken.replace("Bearer ", "").trim();
     const api = getAuthenticatedClient(cleanToken);
-
     await api.post("/publishers", publisherData);
+
+    // Borramos la cache de redis para forzar la actualización de los datos.
+    redisClient = await redisController.returnRedisClient();
+    await redisClient.del("AllPublishers");
+
     res.redirect("/publisher/showAllPublishers");
   } catch (error) {
     res.render("admin/add_publisher", {
@@ -166,6 +187,11 @@ async function updatePublisher(req, res) {
     const api = getAuthenticatedClient(cleanToken);
 
     await api.put(`/publishers/${publisherId}`, updateData);
+
+    // Borramos la cache de redis para forzar la actualización de los datos.
+    redisClient = await redisController.returnRedisClient();
+    await redisClient.del("AllPublishers");
+
     res.redirect(`/publisher/${publisherId}`);
   } catch (error) {
     res.render("admin/edit_publisher", {
@@ -181,17 +207,87 @@ async function deletePublisher(req, res) {
     const cleanToken = req.session.idToken.replace("Bearer ", "").trim();
     const api = getAuthenticatedClient(cleanToken);
 
-    await api.delete(`/publishers/${req.body.id}`);
-    res.redirect("/publisher/showAllPublishers");
+    console.log(req.params.id);
+
+    await api.delete(`/publishers/${req.params.id}`);
+
+    // Borramos la cache de redis para forzar la actualización de los datos.
+    redisClient = await redisController.returnRedisClient();
+    await redisClient.del("AllPublishers");
+
+    res.redirect("/publisher/manage/list?success=true");
   } catch (error) {
     console.error("Error eliminando editorial:", error.response?.data);
     res
       .status(500)
       .send(
-        "No se pudo eliminar la editorial. Verifique si tiene libros asociados."
+        "No se pudo eliminar la editorial. Verifique si tiene libros asociados.",
       );
   }
 }
+
+async function getManagePublishers(req, res) {
+  try {
+    const page = req.query.page || 1;
+    const limit = 4;
+    const deleted = req.query.deleted || false;
+
+    const response = await apiClient.get(
+      `/publishers?page=${page}&limit=${limit}&deleted=${deleted}`,
+    );
+
+    res.locals.user = req.session.user || null;
+
+    res.render("admin/publishers_list", {
+      publishers: response.data.data,
+      currentPage: response.data.currentPage,
+      totalPages: response.data.totalPages,
+      user: res.locals.user,
+    });
+  } catch (error) {
+    console.error("Error cargando editoriales:", error);
+    res.render("admin/publishers_list", {
+      publishers: [],
+      currentPage: 1,
+      totalPages: 1,
+      user: req.session.user || null,
+    });
+  }
+}
+
+async function restorePublisher(req, res) {
+  try {
+    const cleanToken = req.session.idToken.replace("Bearer ", "").trim();
+    const api = getAuthenticatedClient(cleanToken);
+
+    console.log(req.params.id);
+
+    await api.put(`/publishers/restore/${req.params.id}`);
+
+    // Borramos la cache de redis para forzar la actualización de los datos.
+    redisClient = await redisController.returnRedisClient();
+    await redisClient.del("AllPublishers");
+
+    res.redirect("/publisher/manage/list?success=true");
+  } catch (error) {
+    console.error("Error restaurando editorial:", error.response?.data);
+    res.status(500).send("No se pudo restaurar la editorial.");
+  }
+}
+// async function restorePublisher(req, res) {
+//   try {
+//     const cleanToken = req.session.idToken.replace("Bearer ", "").trim();
+//     const api = getAuthenticatedClient(cleanToken);
+
+//     console.log(req.params.id);
+
+//     await api.put(`/publishers/restore/${req.params.id}`);
+//     res.redirect("/publisher/manage/list?deleted=true");
+//   } catch (error) {
+//     console.error("Error restaurando editorial:", error.response?.data);
+//     res.status(500).send("No se pudo restaurar la editorial.");
+//   }
+// }
 
 export default {
   getPublishers,
@@ -203,4 +299,6 @@ export default {
   createPublisher,
   publisher,
   getPublisherCreateForm,
+  getManagePublishers,
+  restorePublisher,
 };

@@ -3,20 +3,29 @@ import publisherController from "../controllers/PublisherController.mjs";
 import upload from "../utils/upload.mjs";
 import protectMiddleware from "../middlewares/protect.mjs";
 
+import { validateSchema } from "../middlewares/validator.mjs";
+import { publisherSchema } from "../schemas/publisherSchema.mjs";
+
 const router = express.Router();
 
 router.get("/showAllPublishers", publisherController.showAllPublishers);
 router.get(
+  "/manage/list",
+  protectMiddleware.protect,
+  protectMiddleware.requireAdmin,
+  publisherController.getManagePublishers,
+);
+router.get(
   "/edit/:id",
   protectMiddleware.protect,
   protectMiddleware.requireAdmin,
-  publisherController.getPublisherEdit
+  publisherController.getPublisherEdit,
 );
 router.get(
   "/create",
   protectMiddleware.protect,
   protectMiddleware.requireAdmin,
-  publisherController.getPublisherCreateForm
+  publisherController.getPublisherCreateForm,
 );
 router.get("/:id", publisherController.getPublisherById);
 router.post(
@@ -24,20 +33,33 @@ router.post(
   protectMiddleware.protect,
   protectMiddleware.requireAdmin,
   upload.single("publisher_logo"),
-  publisherController.createPublisher
+  protectMiddleware.requireFreshToken,
+  validateSchema(publisherSchema),
+  publisherController.createPublisher,
 );
 router.post(
   "/update/:id",
   protectMiddleware.protect,
   protectMiddleware.requireAdmin,
   upload.single("publisher_logo"),
-  publisherController.updatePublisher
+  protectMiddleware.requireFreshToken,
+  validateSchema(publisherSchema),
+  publisherController.updatePublisher,
 );
 router.post(
   "/delete/:id",
   protectMiddleware.protect,
   protectMiddleware.requireAdmin,
-  publisherController.deletePublisher
+  protectMiddleware.requireFreshToken,
+  publisherController.deletePublisher,
+);
+
+router.post(
+  "/restore/:id",
+  protectMiddleware.protect,
+  protectMiddleware.requireAdmin,
+  protectMiddleware.requireFreshToken,
+  publisherController.restorePublisher,
 );
 
 export default router;

@@ -1,100 +1,119 @@
-<!DOCTYPE html>
+<%- include('../layout/header', {
+    title: t('addUser.page_title') || 'Añadir Usuario',
+    bodyClass: 'bg-main-vistas',
+    extraCSS: 'admin/add_user'
+}) %>
 
-<head>
-    <link rel="stylesheet" href="/css/add_genre.css">
-    <title>
-        <%= t('addUser.page_title') %>
-    </title>
-</head>
+<main class="py-5">
+    <div class="container admin-form-container">
+        
+        <div class="mb-4">
+            <a href="/admin/users" class="btn btn-outline-dark rounded-pill px-4 py-2 fw-bold shadow-sm bg-white">
+                <i class="bi bi-arrow-left me-2"></i> <%= t('admin.btn_return') || 'Volver a Usuarios' %>
+            </a>
+        </div>
 
-<body>
-
-    <%- include ("../layout/header") %>
-
-        <main class="container-small">
-            <h1 style="background-color: #006d33; color: white">
-                <%= t('addUser.title') %>
-            </h1>
-            <p class="subtitle text-center">
-                <%= t('addUser.subtitle') %>
-            </p>
-
-            <% if (locals.error) { %>
-                <div class="alert-error">
-                    <%= error %>
-                </div>
+        <div class="brand-card">
+            <div class="brand-card-header text-center">
+                <h2 class="mb-0 fw-bold d-flex flex-column align-items-center gap-2">
+                    <div class="bg-white rounded-circle d-flex align-items-center justify-content-center mx-auto" style="width: 80px; height: 80px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+                        <i class="bi bi-person-plus-fill text-primary" style="font-size: 2.5rem;"></i>
+                    </div>
+                    <span class="mt-2"><%= t('addUser.title') || 'Crear Nuevo Usuario' %></span>
+                </h2>
+                <p class="text-white-50 mt-2 mb-0"><%= t('addUser.subtitle') || 'Añade manualmente un perfil con acceso al sistema' %></p>
+            </div>
+            
+            <div class="card-body p-4 p-md-5">
+                <% if (locals.error) { %>
+                    <div class="alert alert-danger border-0 shadow-sm rounded-3 mb-4 d-flex align-items-center">
+                        <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+                        <div><%= error %></div>
+                    </div>
                 <% } %>
 
-                    <form action="/admin/users/create" method="POST" class="form-admin">
-                        <div class="form-group">
-                            <label for="name">
-                                <%= t('addUser.label_name') %>:
-                            </label>
-                            <input type="text" id="name" name="name" required
-                                placeholder="<%= t('addUser.placeholder_name') %>">
+                <form action="/admin/users/create" method="POST" data-requires-token>
+                    <div class="row g-4">
+                        <div class="col-12">
+                            <h5 class="fw-bold text-dark border-bottom pb-2 mb-3" style="color: var(--brand-teal)"><i class="bi bi-shield-lock me-2 text-warning"></i>Credenciales de Acceso</h5>
                         </div>
 
-                        <div class="form-group">
-                            <label for="email">
-                                <%= t('addUser.label_email') %>:
-                            </label>
-                            <input type="email" id="email" name="email" required
-                                placeholder="<%= t('addUser.placeholder_email') %>">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="email" class="form-label"><i class="bi bi-envelope me-1"></i> <%= t('addUser.label_email') || 'Correo Electrónico' %> *</label>
+                                <input type="email" id="email" name="email" class="form-control" placeholder="<%= t('addUser.placeholder_email') || 'usuario@ejemplo.com' %>" required>
+                            </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="password">
-                                <%= t('addUser.label_password') %>:
-                            </label>
-                            <input type="password" id="password" name="password" required minlength="6">
-                            <small>
-                                <%= t('addUser.password_help') %>
-                            </small>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="password" class="form-label"><i class="bi bi-key me-1"></i> <%= t('addUser.label_password') || 'Contraseña Provisional' %> *</label>
+                                <input type="password" id="password" name="password" class="form-control" required minlength="6">
+                                <small class="text-muted mt-1 d-block"><%= t('addUser.password_help') || 'Mínimo 6 caracteres.' %></small>
+                            </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="role">
-                                <%= t('addUser.label_role') %>:
-                            </label>
-                            <select id="role" name="role">
-                                <option value="CLIENT">
-                                    <%= t('addUser.role_client') %>
-                                </option>
-                                <option value="ADMIN">
-                                    <%= t('addUser.role_admin') %>
-                                </option>
-                            </select>
+                        <div class="col-12">
+                            <h5 class="fw-bold text-dark border-bottom pb-2 mb-3 mt-2" style="color: var(--brand-teal)"><i class="bi bi-person-lines-fill me-2 text-warning"></i>Datos Personales</h5>
                         </div>
 
-                        <div class="form-group">
-                            <label for="default_address">
-                                <%= t('addUser.label_address_default') %>:
-                            </label>
-                            <input type="text" id="default_address" name="default_address" required
-                                placeholder="<%= t('addUser.placeholder_address') %>">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="name" class="form-label"><i class="bi bi-person me-1"></i> <%= t('addUser.label_name') || 'Nombre Completo' %> *</label>
+                                <input type="text" id="name" name="name" class="form-control" placeholder="<%= t('addUser.placeholder_name') || 'Ej: Juan Pérez' %>" required>
+                            </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="optional_address">
-                                <%= t('addUser.label_address_optional') %>:
-                            </label>
-                            <input type="text" id="optional_address" name="optional_address"
-                                placeholder="<%= t('addUser.placeholder_address') %>">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="role" class="form-label"><i class="bi bi-shield-check me-1"></i> <%= t('addUser.label_role') || 'Rol Asignado' %> *</label>
+                                <select id="role" name="role" class="form-select fw-bold" style="color: var(--brand-teal);">
+                                    <option value="CLIENT"><%= t('addUser.role_client') || 'Cliente' %></option>
+                                    <option value="ADMIN"><%= t('addUser.role_admin') || 'Administrador' %></option>
+                                </select>
+                            </div>
                         </div>
 
-                        <div class="form-actions">
-                            <button type="submit" class="btn-primary">
-                                <%= t('addUser.btn_submit') %>
-                            </button>
-                            <a href="/admin/users" class="btn-secondary">
-                                <%= t('addUser.btn_cancel') %>
-                            </a>
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="default_address" class="form-label"><i class="bi bi-house-door me-1"></i> <%= t('addUser.label_address_default') || 'Dirección Principal' %> *</label>
+                                <input type="text" id="default_address" name="default_address" class="form-control" placeholder="<%= t('addUser.placeholder_address') || 'Calle, Número, Piso, Código Postal...' %>" required>
+                            </div>
                         </div>
-                    </form>
-        </main>
 
-        <%- include ("../layout/footer") %>
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="optional_address" class="form-label"><i class="bi bi-building me-1"></i> <%= t('addUser.label_address_optional') || 'Dirección Secundaria (Opcional)' %></label>
+                                <input type="text" id="optional_address" name="optional_address" class="form-control" placeholder="<%= t('addUser.placeholder_address') || 'Dirección alternativa...' %>">
+                            </div>
+                        </div>
+                    </div>
 
-</body>
+                    <div class="d-flex justify-content-center gap-3 mt-4 pt-4 border-top">
+                        <a href="/admin/users" class="btn btn-light px-4 py-2 rounded-pill fw-bold text-secondary border shadow-sm">
+                            <%= t('addUser.btn_cancel') || 'Cancelar' %>
+                        </a>
+                        <button type="submit" class="btn btn-brand-teal px-5 py-2 fw-bold rounded-pill text-white shadow-sm d-flex align-items-center gap-2">
+                            <i class="bi bi-plus-circle"></i>
+                            <%= t('addUser.btn_submit') || 'Crear Usuario' %>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
 
-</html>
+        <div class="card border-0 shadow-sm mt-4 brand-card" style="background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(5px);">
+            <div class="card-body d-flex align-items-center p-4">
+                <div class="bg-white rounded-circle p-3 shadow-sm me-4 border d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                    <i class="bi bi-info-circle-fill fs-3" style="color: var(--brand-teal);"></i>
+                </div>
+                <div>
+                    <h6 class="mb-1 fw-bold fs-5 text-dark">Información Importante</h6>
+                    <p class="text-muted mb-0 small">El usuario será registrado automáticamente en Firebase Authentication y estará listo para iniciar sesión inmediatamente.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<%- include("../layout/footer") %>
