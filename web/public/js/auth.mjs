@@ -14,11 +14,11 @@ import {
 import axios from "https://cdn.jsdelivr.net/npm/axios@1.6.7/+esm";
 import { auth } from "./firebaseConfig.mjs";
 
-const API_URL = "pruebarailway2-production-afbe.up.railway.app/auth";
+const API_URL = "pruebarailway2-production-05bf.up.railway.app/auth";
 
 // Configuración centralizada de Axios
 const apiClient = axios.create({
-  baseURL: "pruebarailway2-production-afbe.up.railway.app",
+  baseURL: "pruebarailway2-production-05bf.up.railway.app",
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
