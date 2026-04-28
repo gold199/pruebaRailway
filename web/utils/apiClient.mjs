@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const apiClient = axios.create({
-  baseURL: "https://pruebarailway2-production-afbe.up.railway.app",
+  baseURL: "https://pruebarailway2-production-afbe.up.railway.app:3000",
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
@@ -12,7 +12,7 @@ export default apiClient;
 
 export function getAuthenticatedClient(idToken) {
   return axios.create({
-    baseURL: "https://pruebarailway2-production-afbe.up.railway.app",
+    baseURL: "https://pruebarailway2-production-afbe.up.railway.app:3000",
     headers: { Authorization: `Bearer ${idToken}` },
   });
 }
