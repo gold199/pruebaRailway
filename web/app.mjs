@@ -34,7 +34,7 @@ import cartRoutes from "./routes/cartRouter.mjs";
 import adminRoutes from "./routes/adminRoutes.mjs";
 import reviewRoutes from "./routes/reviewRouter.mjs";
 
-app.set("trust proxy", 1);
+
 // Middlewares
 import controlUserAgent from "./middlewares/controlUserAgent.mjs";
 
@@ -53,6 +53,7 @@ async function startApp() {
     console.log("✅ Redis inicializado y conectado correctamente");
 
     const app = express();
+    app.set("trust proxy", 1);
 
     if (process.env.NODE_ENV === "production") {
       app.set("trust proxy", true); // Railway: múltiples saltos internos de proxy
