@@ -10,15 +10,26 @@ let redisClient = null;
 
 async function getAllBooks(req, res) {
   try {
+    const sort = req.query.sort
+      ? Array.isArray(req.query.sort)
+        ? req.query.sort
+        : [req.query.sort]
+      : [];
+
     const page = req.query.page || 1;
     const q = req.query.q || "";
     const maxPrice = req.query.maxPrice || "";
     const genre = req.query.genre || "";
     const author = req.query.author || "";
+    const mostRated = sort.includes("mostRated");
+    const leastRated = sort.includes("leastRated");
+    const mostBought = sort.includes("mostBought");
+    const leastBought = sort.includes("leastBought");
+
 
     const [booksResponse, genresResponse, authorsResponse] = await Promise.all([
       apiClient.get(`/books`, {
-        params: { page, q, maxPrice, genre, author },
+        params: { page, q, maxPrice, genre, author, mostRated, leastRated, mostBought, leastBought },
       }),
       apiClient.get("/genres"), //Ruta paginada
       apiClient.get("/authors"),
@@ -34,13 +45,21 @@ async function getAllBooks(req, res) {
       user: req.session.user || null,
     });
   } catch (error) {
-    console.error("Error al obtener libros: ", error);
-    res.status(500).render("error", { message: "Error al cargar el catálogo" });
+    console.error("Error al obtener libros: ", error.message, error.stack);
+    if (error.response) {
+      console.error("API Error Response:", error.response.data);
+    }
+    res.status(500).render("errors/500", { message: "Error al cargar el catálogo" });
   }
 }
 
 async function showAllBooks(req, res) {
   try {
+    const sort = req.query.sort
+      ? Array.isArray(req.query.sort)
+        ? req.query.sort
+        : [req.query.sort]
+      : [];
     // Definimos el cliente de redis
     redisClient = await redisController.returnRedisClient();
 
@@ -49,6 +68,10 @@ async function showAllBooks(req, res) {
     const maxPrice = req.query.maxPrice || "";
     const genre = req.query.genre || "";
     const author = req.query.author || "";
+    const mostRated = sort.includes("mostRated");
+    const leastRated = sort.includes("leastRated");
+    const mostBought = sort.includes("mostBought");
+    const leastBought = sort.includes("leastBought");
 
     const [cachedGenres, cachedAuthors] = await Promise.all([
       redisClient.get("AllGenres"),
@@ -59,12 +82,15 @@ async function showAllBooks(req, res) {
     let authors = cachedAuthors ? JSON.parse(cachedAuthors) : null;
 
     if (!genres || !authors) {
+      console.log("Fetching genres and authors from API...");
       const [genresResponse, authorsResponse] = await Promise.all([
-        apiClient.get("/genres/all"),
+        apiClient.get("/genres/all").catch(e => { console.error("Genres API Error:", e.message); throw e; }),
         apiClient.get("/authors", {
           params: { onlyWithBooks: true },
-        }),
+        }).catch(e => { console.error("Authors API Error:", e.message); throw e; }),
       ]);
+      console.log("Genres Response Status:", genresResponse.status);
+      console.log("Authors Response Status:", authorsResponse.status);
 
       genres = genresResponse.data;
       authors = authorsResponse.data;
@@ -75,10 +101,14 @@ async function showAllBooks(req, res) {
       });
     }
 
-    console.log("Genres:", genres[0]);
+    if (Array.isArray(genres)) {
+      console.log("Genres:", genres[0]);
+    } else {
+      console.log("Genres is not an array:", genres);
+    }
 
     const booksResponse = await apiClient.get(`/books`, {
-      params: { page, q, maxPrice, genre, author },
+      params: { page, q, maxPrice, genre, author, mostRated, leastRated, mostBought, leastBought },
     });
 
     res.render("partials/booksTable", {
@@ -92,8 +122,11 @@ async function showAllBooks(req, res) {
       user: req.session.user || null,
     });
   } catch (error) {
-    console.error("Error al obtener libros en partial: ", error);
-    res.status(500).render("error", { message: "Error al cargar el catálogo" });
+    console.error("Error al obtener libros en partial: ", error.message, error.stack);
+    if (error.response) {
+      console.error("API Error Response:", error.response.data);
+    }
+    res.status(500).render("errors/500", { message: "Error al cargar el catálogo" });
   }
 }
 
@@ -131,6 +164,8 @@ async function getBookById(req, res) {
     const genres = genresResponse.data;
     const publisher = publisherResponse.data;
     const reviews = reviewsResponse.data;
+
+    console.log("Genres: ", genres);
 
     // console.log(authors);
 

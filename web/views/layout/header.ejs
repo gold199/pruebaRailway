@@ -7,13 +7,28 @@
     <title>
         <%= (typeof title !=='undefined' ) ? title : 'Librería Online' %>
     </title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <meta name="description"
+        content="<%= (typeof metaDescription !== 'undefined') ? metaDescription : t('common.meta_description') %>">
+    <!-- Bootstrap y Bootstrap Icons servidos localmente para evitar latencia de CDN -->
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/bootstrap-icons.min.css">
+    <!-- Preconnect y preload de Google Fonts para romper la cadena de red crítica -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" as="style"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        onload="this.onload=null;this.rel='stylesheet'">
+    <noscript>
+        <link rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap">
+    </noscript>
 
     <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
 
-    <link rel="stylesheet" href="/css/main.css">
-    <link rel="stylesheet" href="/css/layout.css">
+    <link rel="stylesheet" href="/css/main.min.css">
+    <link rel="stylesheet" href="/css/layout.min.css">
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/css/flag-icons.min.css">
 
     <% if (typeof extraCSS !=='undefined' ) { %>
         <link rel="stylesheet" href="/css/views/<%= extraCSS %>.css">
@@ -29,7 +44,8 @@
                 <div class="logo-container">
                     <a href="/" class="brand-container d-flex align-items-center">
                         <div class="header-logo-outer">
-                            <img src="/images/logo.png" alt="BOOKLY logo" class="header-logo-inner-img">
+                            <img src="/images/logo.png" alt="BOOKLY logo" class="header-logo-inner-img" width="49"
+                                height="27" loading="eager">
                         </div>
                         <span class="brand-text ms-3">BOOKLY</span>
                     </a>
@@ -63,12 +79,101 @@
                     </nav>
 
                     <div class="header-right-zone">
+                        <div class="language-selector dropdown">
+                            <!-- Botón que muestra el idioma actual con su bandera -->
+                            <!-- <button class="btn btn-outline-light btn-sm dropdown-toggle d-flex align-items-center gap-2"
+                                type="button" data-bs-toggle="dropdown">
+                                <% if(i18n.language.startsWith('es')) { %>
+                                    <img src="https://flagcdn.com/w20/es.png" width="20" alt="ES">
+                                    <% } else if(i18n.language.startsWith('ca')) { %>
+                                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Flag_of_Catalonia.svg/20px-Flag_of_Catalonia.svg.png"
+                                            width="20" alt="CA">
+                                        <% } else if(i18n.language.startsWith('gl')) { %>
+                                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Flag_of_Galicia.svg/20px-Flag_of_Galicia.svg.png"
+                                                width="20" alt="GL">
+                                            <% } else if(i18n.language.startsWith('eu')) { %>
+                                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Flag_of_the_Basque_Country.svg/20px-Flag_of_the_Basque_Country.svg.png"
+                                                    width="20" alt="EU">
+                                                <% } %>
+                                                    <span class="d-none d-sm-inline">
+                                                        <%= i18n.language.toUpperCase().substring(0,2) %>
+                                                    </span>
+                            </button> -->
+
+                            <button class="btn btn-outline-light btn-sm dropdown-toggle d-flex align-items-center gap-2"
+                                type="button" data-bs-toggle="dropdown">
+                                <% const safeLng=(i18n.language || 'es' ).substring(0, 2); const flagClassMap={
+                                    es: 'fi-es' , ca: 'fi-es-ct' , gl: 'fi-es-ga' , eu: 'fi-es-pv' }; const
+                                    currentFlagClass=flagClassMap[safeLng] || 'fi-es' ; %>
+                                    <span class="fi <%= currentFlagClass %>"
+                                        style="width: 20px; height: 15px; border-radius: 2px;"></span>
+                                    <span class="d-none d-sm-inline">
+                                        <%= t('languages.' + safeLng) %>
+                                    </span>
+                            </button>
+
+                            <!-- Opciones del menú: Cada enlace sustituye al envío del formulario -->
+                            <!-- <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2 <%= i18n.language.startsWith('es') ? 'active' : '' %>"
+                                        href="/language?lng=es&returnTo=<%= encodeURIComponent(currentUrl) %>">
+                                        <img src="https://flagcdn.com/w20/es.png" width="20" alt="ES">
+                                        <%= t('languages.es') || 'Castellano' %>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2 <%= i18n.language.startsWith('ca') ? 'active' : '' %>"
+                                        href="/language?lng=ca&returnTo=<%= encodeURIComponent(currentUrl) %>">
+                                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ce/Flag_of_Catalonia.svg/20px-Flag_of_Catalonia.svg.png"
+                                            width="20" alt="CA">
+                                        <%= t('languages.ca') || 'Català' %>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2 <%= i18n.language.startsWith('gl') ? 'active' : '' %>"
+                                        href="/language?lng=gl&returnTo=<%= encodeURIComponent(currentUrl) %>">
+                                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/64/Flag_of_Galicia.svg/20px-Flag_of_Galicia.svg.png"
+                                            width="20" alt="GL">
+                                        <%= t('languages.gl') || 'Galego' %>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center gap-2 <%= i18n.language.startsWith('eu') ? 'active' : '' %>"
+                                        href="/language?lng=eu&returnTo=<%= encodeURIComponent(currentUrl) %>">
+                                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/Flag_of_the_Basque_Country.svg/20px-Flag_of_the_Basque_Country.svg.png"
+                                            width="20" alt="EU">
+                                        <%= t('languages.eu') || 'Euskara' %>
+                                    </a>
+                                </li>
+                            </ul> -->
+
+                            <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                                <% const langs=[ { id: 'es' , class: 'fi-es' }, { id: 'ca' , class: 'fi-es-ct' }, {
+                                    id: 'gl' , class: 'fi-es-ga' }, { id: 'eu' , class: 'fi-es-pv' } ]; %>
+
+                                    <% langs.forEach(lang=> { %>
+                                        <li>
+                                            <a class="dropdown-item d-flex align-items-center gap-2 <%= i18n.language.startsWith(lang.id) ? 'active' : '' %>"
+                                                href="/language?lng=<%= lang.id %>&returnTo=<%= encodeURIComponent(currentUrl) %>">
+                                                <span class="fi <%= lang.class %>"
+                                                    style="width: 20px; height: 15px; border-radius: 2px;"></span>
+                                                <%= t('languages.' + lang.id) %>
+                                            </a>
+                                        </li>
+                                        <% }) %>
+                            </ul>
+
+                        </div>
+
+                        <!-- <div class="header-right-zone">
                         <div class="language-selector">
                             <form action="/language" method="get">
 
                                 <input type="hidden" name="returnTo" value="<%= currentUrl %>">
 
-                                <select name="lng" class="form-select form-select-sm" onchange="this.form.submit()">
+                                <label for="language-select" class="visually-hidden">Idioma</label>
+                                <select id="language-select" name="lng" class="form-select form-select-sm"
+                                    onchange="this.form.submit()" aria-label="Seleccionar idioma">
                                     <option value="es" <%=i18n.language.startsWith('es') ? 'selected' : '' %>>ES
                                     </option>
                                     <option value="ca" <%=i18n.language.startsWith('ca') ? 'selected' : '' %>>CA
@@ -79,17 +184,19 @@
                                     </option>
                                 </select>
                             </form>
-                        </div>
+                        </div> -->
 
                         <div class="auth-group">
                             <% if (user) { %>
                                 <div class="dropdown">
                                     <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button"
                                         data-bs-toggle="dropdown">
-                                        <%= user.name || 'User' %>
+                                        <%= user.name || t('review.user') %>
                                     </button>
                                     <ul class="dropdown-menu dropdown-menu-end">
-                                        <li><a class="dropdown-item" href="/user/profile">Mi Perfil</a></li>
+                                        <li><a class="dropdown-item" href="/user/profile">
+                                                <%= t('profile.title') %>
+                                            </a></li>
                                         <% if(user.role==='ADMIN' ) { %>
                                             <li><a class="dropdown-item fw-bold admin-dropdown-link"
                                                     href="/admin/dashboard">
@@ -127,6 +234,74 @@
                         icon.classList.remove('bi-x-lg');
                         icon.classList.add('bi-list');
                     }
+                }
+            </script>
+
+            <script type="module">
+                import { auth } from "/js/firebaseConfig.mjs";
+                import { onIdTokenChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+                // Escucha cambios en el token (incluyendo refrescos automáticos cada hora)
+                // Solo actualiza el token en la sesión del servidor, sin recrear la sesión completa
+                onIdTokenChanged(auth, async (firebaseUser) => {
+                    if (!firebaseUser) return;
+                    try {
+
+                        // getIdToken(true): fuerza renovación si el token está próximo a expirar.
+                        // onIdTokenChanged ya se dispara cuando Firebase lo renueva internamente,
+                        // pero true garantiza que siempre enviamos un token válido y fresco.
+
+                        const newToken = await firebaseUser.getIdToken(false);
+
+                        // Evita reenviar el mismo token en navegaciones dentro de la misma pestaña
+                        // sessionStorage se limpia al cerrar la pestaña — comportamiento correcto
+                        const lastSentToken = sessionStorage.getItem("last_synced_token");
+                        if (newToken === lastSentToken) {
+                            console.log("Token idéntico, saltando sincronización.");
+                            return;
+                        }
+
+                        const response = await fetch("/auth/refresh-token", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ idToken: newToken }),
+                        });
+
+                        const data = await response.json().catch(() => ({}));
+
+                        if (response.ok) {
+                            sessionStorage.setItem("last_synced_token", newToken);
+                            console.log("Token sincronizado con éxito.");
+                        }
+
+                        if (data.forceLogout) {
+                            console.warn("[header] Forzando logout por indicación del servidor.");
+                            await signOut(auth).catch(() => { });
+                            window.location.href = "/login?error=" + encodeURIComponent("Tu sesión ha expirado. Por favor inicia sesión de nuevo.");
+                            return;
+                        }
+
+                        console.warn("El servidor rechazó el refresh:", response.status);
+                    } catch (error) {
+                        console.error("Error al sincronizar token:", error);
+                    }
+                });
+
+                // Cierra sesión en Firebase al hacer logout para limpiar el estado del cliente
+                const logoutLink = document.querySelector('a[href="/logout"]');
+                if (logoutLink) {
+                    logoutLink.addEventListener("click", async (e) => {
+                        e.preventDefault();
+                        try {
+                            await signOut(auth);
+                            console.log("Sesión de Firebase cerrada correctamente.");
+                        } catch (err) {
+                            console.warn("Error al cerrar sesión en Firebase (se continúa con el logout del servidor):", err);
+                        } finally {
+                            // Siempre redirigimos al logout del servidor, independientemente de si Firebase falló
+                            window.location.href = "/logout";
+                        }
+                    });
                 }
             </script>
         </div>
