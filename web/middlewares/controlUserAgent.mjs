@@ -1,4 +1,4 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import RedisStore from "rate-limit-redis";
 import redisController from "../controllers/RedisController.mjs";
 
@@ -30,16 +30,7 @@ const apiLimiter = rateLimit({
   // keyGenerator explícito: garantiza que la IP extraída sea la real del cliente
   // cuando hay un proxy inverso (nginx, Caddy, etc.) delante del servidor Express.
   // Sin esto, todos los usuarios comparten el límite de la IP del proxy (127.0.0.1).
-  keyGenerator: (req) => {
-    // En Railway, X-Forwarded-For puede tener múltiples IPs: "clienteIP, proxy1, proxy2"
-    // La primera es siempre la IP real del cliente
-    const forwarded = req.headers["x-forwarded-for"];
-    if (forwarded) {
-      const clientIP = forwarded.split(",")[0].trim();
-      if (clientIP) return clientIP;
-    }
-    return req.ip || "unknown";
-  },
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
   skip: (req) => {
     // Excluir assets estáticos del conteo — no tienen sentido en el rate limit
     // y en Railway generan mucho tráfico interno innecesario
