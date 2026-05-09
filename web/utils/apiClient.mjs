@@ -9,7 +9,7 @@ import axios from "axios";
 // "bookly-internal";
 
 const apiClient = axios.create({
-  baseURL: process.env.API_URL || "http://localhost:3000",
+  baseURL: process.env.API_URL || "https://pruebarailway2-production.up.railway.app",
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
@@ -30,7 +30,7 @@ export default apiClient;
 export function getAuthenticatedClient(idToken) {
   const instance = axios.create({
 
-    baseURL: process.env.API_URL || "http://localhost:3000",
+    baseURL: process.env.API_URL || "https://pruebarailway2-production.up.railway.app",
     headers: {
       Authorization: `Bearer ${idToken}`,
       "User-Agent": "BOOKLY-WebServer/1.0",
@@ -50,7 +50,7 @@ export function getAuthenticatedClient(idToken) {
 }
 
 // const apiClient = axios.create({
-//   baseURL: "http://localhost:3000",
+//   baseURL: "https://pruebarailway2-production.up.railway.app",
 //   timeout: 10000,
 //   headers: {
 //     "Content-Type": "application/json",
@@ -61,7 +61,7 @@ export function getAuthenticatedClient(idToken) {
 
 // export function getAuthenticatedClient(idToken) {
 //   return axios.create({
-//     baseURL: "http://localhost:3000",
+//     baseURL: "https://pruebarailway2-production.up.railway.app",
 //     headers: { Authorization: `Bearer ${idToken}` },
 //   });
 // }
