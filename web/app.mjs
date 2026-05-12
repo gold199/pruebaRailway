@@ -265,7 +265,7 @@ async function startApp() {
     });
 
     // 9. Lanzamiento del servidor
-    const port = process.env.PORT;
+    const port = 3001;
     app.listen(port, () => {
       console.log(`🚀 Web corriendo en http://localhost:${port}`);
     });
