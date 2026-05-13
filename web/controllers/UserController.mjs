@@ -125,7 +125,7 @@ async function getPurchaseHistory(req, res) {
         user: req.session.user,
         orders: [],
         successMessage: null,
-        error: null
+        error: null,
       });
     }
 
@@ -582,13 +582,21 @@ async function getRecommendationsPage(req, res) {
     const api = getAuthenticatedClient(cleanToken);
     const userId = req.session.user.id;
 
-    const [mostSoldRes, bestRatedRes, combinedRes, favoritesRes] =
-      await Promise.allSettled([
-        api.get(`/books/recommendations/mostSold/${userId}`),
-        api.get(`/books/recommendations/bestRated/${userId}`),
-        api.get(`/books/recommendations/combined/${userId}`),
-        api.get(`/users/favorites/${userId}`),
-      ]);
+    const [
+      mostSoldRes,
+      bestRatedRes,
+      combinedRes,
+      favoritesRes,
+      allBookAuthorsRes,
+      allAuthorsRes,
+    ] = await Promise.allSettled([
+      api.get(`/books/recommendations/mostSold/${userId}`),
+      api.get(`/books/recommendations/bestRated/${userId}`),
+      api.get(`/books/recommendations/combined/${userId}`),
+      api.get(`/users/favorites/${userId}`),
+      api.get("/bookAuthor"),
+      api.get("/authors"),
+    ]);
 
     const favoriteGenres =
       favoritesRes.status === "fulfilled" ? favoritesRes.value.data : [];
@@ -636,13 +644,22 @@ async function getRecommendationsPage(req, res) {
       (b) => !combinedIds.has(b.id) && !mostSoldIds.has(b.id),
     );
 
+    const bookAuthors =
+      allBookAuthorsRes.status === "fulfilled"
+        ? allBookAuthorsRes.value.data
+        : [];
+    const authors =
+      allAuthorsRes.status === "fulfilled" ? allAuthorsRes.value.data : [];
+
     res.render("partials/recommendations", {
       user: req.session.user,
       mostSold,
       bestRated,
       combined,
       favoriteGenres,
-      hasFavorites, // ← nuevo flag para la vista
+      hasFavorites,
+      bookAuthors,
+      authors,
       error: null,
     });
   } catch (error) {
@@ -735,6 +752,130 @@ async function getRecommendationsPage(req, res) {
 //   }
 // }
 
+async function cancelOrder(req, res) {
+  try {
+    const api = getAuthenticatedClient(req.session.idToken);
+
+    const urlId = req.params.id;
+    const { orderId, orderStatus } = req.body;
+
+    //Validar que el pedido sea del propio usuario que lo quiere cancelar
+    const { data: order } = await api.get(`/orders/${req.params.id}`);
+    if (String(order.user_id) !== String(req.session.user.id)) {
+      req.session.flash = {
+        type: "error",
+        message: "No tienes permiso para cancelar este pedido.",
+      };
+      return res.redirect("/user/myOrders");
+    }
+
+    // 3. Validación de negocio ( estado )
+    if (!["PENDIENTE", "PAGADO"].includes(orderStatus?.toUpperCase())) {
+      req.session.flash = {
+        type: "error",
+        message:
+          "El estado del pedido no permite su cancelación. Contacta con soporte.",
+      };
+      return res.redirect("/user/myOrders");
+    }
+
+    const { data } = await api.post(`/orders/user/cancel/${orderId}`);
+
+    req.session.flash = {
+      type: "success",
+      message:
+        data.message ||
+        "Pedido cancelado. El reembolso llegará en 5-10 días hábiles.",
+    };
+    res.redirect("/user/myOrders");
+
+    // const response = await api.patch(`/orders/user/cancel/${orderId}`);
+    // const order = response.data;
+    // req.session.flash = {
+    //   type: "success",
+    //   message: order.message,
+    // };
+    // res.redirect("/user/myOrders");
+  } catch (error) {
+    console.error("Error al eliminar pedido:", error);
+    req.session.flash = {
+      type: "error",
+      message: error.response?.data?.error || "No se pudo eliminar el pedido.",
+    };
+    res.redirect("/user/myOrders");
+  }
+}
+
+async function userRequestReturn(req, res) {
+  try {
+    const { id } = req.params; // ID del pedido desde la URL
+
+    const api = getAuthenticatedClient(req.session.idToken);
+
+    const { returnOrderId, returnOrderStatus } = req.body;
+
+    console.log("Lo que llega en el body: ", returnOrderId);
+    console.log("Estado actual del pedido: ", returnOrderStatus);
+
+    //Validar que el pedido sea del propio usuario que lo quiere devolver
+    const { data: order } = await api.get(`/orders/${req.params.id}`);
+
+    console.log(order);
+
+    if (!order) {
+      req.session.flash = {
+        type: "error",
+        message: "No se pudo encontrar el pedido.",
+      };
+      return res.redirect("/user/myOrders");
+    }
+
+    if (String(order.id) !== String(returnOrderId)) {
+      req.session.flash = {
+        type: "error",
+        message: "El pedido no coincide con el id de pedido enviado.",
+      };
+      return res.redirect("/user/myOrders");
+    }
+
+    if (String(order.user_id) !== String(req.session.user.id)) {
+      req.session.flash = {
+        type: "error",
+        message: "No tienes permiso para solicitar la devolución de este pedido.",
+      };
+      return res.redirect("/user/myOrders");
+    }
+
+    if (!["ENTREGADO"].includes(returnOrderStatus?.toUpperCase())) {
+      req.session.flash = {
+        type: "error",
+        message:
+          "El estado del pedido no permite su devolución. Contacta con soporte.",
+      };
+      return res.redirect("/user/myOrders");
+    }
+    
+    // Llamamos al endpoint de la API que creamos antes
+    const { data } = await api.post(`/orders/user/request-return/${id}`);
+
+    req.session.flash = {
+      type: "success",
+      message: data.message || "Solicitud de devolución enviada correctamente.",
+    };
+    
+    // Redirigimos al perfil del usuario o a sus pedidos
+    res.redirect("/user/myOrders"); 
+  } catch (error) {
+    console.error("Error al solicitar devolución:", error);
+    req.session.flash = {
+      type: "error",
+      message: error.response?.data?.error || "No se pudo tramitar la solicitud.",
+    };
+    res.redirect("/profile/orders");
+  }
+}
+
+
 export default {
   getProfile,
   getPurchaseHistory,
@@ -747,4 +888,6 @@ export default {
   saveFavoriteGenres,
   getFavoritesPage,
   getRecommendationsPage,
+  cancelOrder,
+  userRequestReturn,
 };

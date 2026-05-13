@@ -77,4 +77,18 @@ router.get(
   UserController.getRecommendationsPage,
 );
 
+router.post(
+  "/cancel/order/:id",
+  protectMiddleware.protect,
+  protectMiddleware.requireFreshToken,
+  UserController.cancelOrder,
+)
+
+router.post(
+  "/request-return/order/:id",
+  protectMiddleware.protect,
+  protectMiddleware.requireFreshToken,
+  UserController.userRequestReturn,
+)
+
 export default router;
