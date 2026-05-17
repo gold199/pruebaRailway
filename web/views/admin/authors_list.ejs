@@ -4,19 +4,26 @@
         searchQuery=locals.query || {}; %>
 
         <div class="container py-5">
-            <div class="d-flex justify-content-between align-items-center mb-5">
-                <div>
-                    <h2 class="section-title mb-0" style="font-size: var(--fs-xl);">
-                        <%= t('es:authors.title') %>
-                    </h2>
-                    <p class="text-muted" style="font-size: var(--fs-sm);">
-                        <%= t('es:authors.subtitle') %>
-                    </p>
+            <div class="admin-hero mb-5">
+                <div class="admin-hero-content d-flex justify-content-between align-items-center flex-wrap gap-4">
+                    <div class="d-flex align-items-center gap-4">
+                        <a href="/admin/dashboard" class="btn-back-admin">
+                            <i class="bi bi-arrow-left"></i>
+                        </a>
+                        <div>
+                            <h2 class="mb-0 fw-bold" style="font-size: var(--fs-xl);">
+                                <%= t('es:authors.title') %>
+                            </h2>
+                            <p class="text-white opacity-75 mb-0" style="font-size: var(--fs-sm);">
+                                <%= t('es:authors.subtitle') %>
+                            </p>
+                        </div>
+                    </div>
+                    <a href="/authors/author/create" class="btn btn-glass-white text-white rounded-pill px-4 py-2 fw-bold shadow-sm transition-all"
+                        style="text-decoration: none; background: rgba(255,255,255,0.2); backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.3);">
+                        <i class="bi bi-plus-lg me-2"></i><%= t('admin.add_author') %>
+                    </a>
                 </div>
-                <a href="/authors/author/create" class="btn btn-primary rounded-pill px-4 shadow-sm d-flex align-items-center"
-                    style="background-color: var(--brand-teal); border: none;">
-                    <i class="bi bi-plus-lg me-2"></i>Añadir Autor
-                </a>
             </div>
 
             <div class="row">
@@ -24,18 +31,18 @@
                 <aside class="col-lg-3 mb-4">
                     <div class="filter-sidebar p-4 shadow-sm bg-light rounded-3">
                         <h5 class="mb-4 d-flex align-items-center border-bottom pb-2">
-                            <i class="bi bi-sliders me-2"></i> Filtros
+                            <i class="bi bi-sliders me-2"></i> <%= t('authors.filters') || 'Filtrar por' %>
                         </h5>
 
                         <form action="/authors/manage/list" method="GET">
                             <div class="mb-4">
-                                <label class="form-label small fw-bold text-uppercase text-muted">País de origen</label>
+                                <label class="form-label small fw-bold text-uppercase text-muted"><%= t('author_detail.nationality') %> </label>
                                 <div class="scrollable-filter-container">
                                     <div class="form-check small">
                                         <input class="form-check-input" type="radio" name="country" id="country_all"
                                             value="" <%=!selectedCountry ? 'checked' : '' %>>
                                         <label class="form-check-label" for="country_all">
-                                            Todos los países
+                                            <%= t('authors.all_countries') || 'Todos los países' %>
                                         </label>
                                     </div>
                                     <% if (countriesList && countriesList.length> 0) { %>
@@ -54,19 +61,19 @@
                             </div>
 
                             <div class="mb-4">
-                                <label class="form-label small fw-bold text-uppercase text-muted">Estado</label>
+                                <label class="form-label small fw-bold text-uppercase text-muted"><%= t('admin.status') %> </label>
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" role="switch"
                                         id="flexSwitchCheckChecked" name="deleted" value="true" <%=query.deleted
                                         ? 'checked' : '' %>>
-                                    <label class="form-check-label" for="flexSwitchCheckChecked">Mostrar solo autores
-                                        eliminados</label>
+                                    <label class="form-check-label" for="flexSwitchCheckChecked"><%= t('admin.only_deleted') %>
+                                    </label>
                                 </div>
                             </div>
 
                             <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-primary btn-sm fw-bold">Aplicar</button>
-                                <a href="/authors/manage/list" class="btn btn-outline-secondary btn-sm">Limpiar</a>
+                                <button type="submit" class="btn btn-primary btn-sm fw-bold"><%= t('common.apply') || 'Aplicar' %></button>
+                                <a href="/authors/manage/list" class="btn btn-outline-secondary btn-sm"><%= t('catalog.clear') || 'Limpiar' %></a>
                             </div>
                         </form>
                     </div>
@@ -84,7 +91,7 @@
                                         <% if (author.deleted_at) { %>
                                             <span
                                                 class="position-absolute top-0 end-0 badge rounded-pill bg-secondary m-2">
-                                                <i class="bi bi-archive"></i> Archivado
+                                                <i class="bi bi-archive"></i> <%= t('admin.deleted') %>
                                             </span>
                                             <% } %>
 
@@ -122,7 +129,7 @@
                                                                         <% if (!author.deleted_at) { %>
                                                                             <a href="/author/<%= author.id %>"
                                                                                 class="btn btn-outline-dark btn-sm">
-                                                                                <i class="bi bi-eye"></i> Perfil Público
+                                                                                <i class="bi bi-eye"></i> <%= t('author_detail.view_details') %>
                                                                             </a>
 
                                                                             <div class="row g-2">
@@ -131,7 +138,7 @@
                                                                                         class="btn btn-primary btn-sm w-100 py-2 shadow-sm">
                                                                                         <i
                                                                                             class="bi bi-pencil-square me-1"></i>
-                                                                                        Editar
+                                                                                        <%= t('admin.edit_author') %>
                                                                                     </a>
                                                                                 </div>
                                                                                 <div class="col-6">
@@ -142,7 +149,7 @@
                                                                                         data-action="/authors/author/delete/<%= author.id %>"
                                                                                         data-name="<%= author.name %>">
                                                                                         <i class="bi bi-trash me-1"></i>
-                                                                                        Borrar
+                                                                                        <%= t('admin.delete') %>
                                                                                     </button>
                                                                                 </div>
                                                                             </div>
@@ -154,7 +161,7 @@
                                                                                         class="btn btn-success btn-sm w-100 py-2 fw-bold">
                                                                                         <i
                                                                                             class="bi bi-arrow-counterclockwise"></i>
-                                                                                        Restaurar Autor
+                                                                                        <%= t('admin.restore') %>
                                                                                     </button>
                                                                                 </form>
 
@@ -165,7 +172,7 @@
                                                                                     data-bs-target="#modalHardDeleteAuthor"
                                                                                     data-action="/authors/hard-delete/<%= author.id %>"
                                                                                     data-name="<%= author.name %>">
-                                                                                    Eliminar de la base de datos
+                                                                                    <%= t('admin.delete_author') %>
                                                                                 </button>
                                                                                 <% } %>
                                                                     </div>
@@ -184,7 +191,7 @@
                                             <p class="text-muted small">Prueba a cambiar los filtros o añadir un autor
                                                 nuevo.</p>
                                             <a href="/authors/author/create" class="btn btn-primary btn-sm rounded-pill px-4">
-                                                <i class="bi bi-plus-circle me-1"></i> Añadir Autor
+                                                <i class="bi bi-plus-circle me-1"></i> <%= t('admin.add_author') %>
                                             </a>
                                         </div>
                                         <% } %>
@@ -233,17 +240,13 @@
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content shadow-lg">
                     <div class="modal-header border-0" style="background-color:#dc3545;">
-                        <h5 class="modal-title fw-bold text-white"><i class="bi bi-archive me-2"></i>Archivar autor</h5>
+                        <h5 class="modal-title fw-bold text-white"><i class="bi bi-archive me-2"></i> <%= t('admin.archive_author') %></h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body p-4 text-center">
-                        <p class="mb-1">¿Archivar a <strong id="deleteAuthorName"></strong>?</p>
-                        <p class="text-muted small">Sus libros dejarán de estar visibles en el catálogo.</p>
                     </div>
                     <div class="modal-footer border-0 justify-content-center pb-4">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                         <form id="deleteAuthorForm" method="POST" data-requires-token style="display:inline;">
-                            <button type="submit" class="btn btn-danger ms-2">Archivar</button>
+                            <button type="submit" class="btn btn-danger ms-2"><%= t('admin.archive') %></button>
                         </form>
                     </div>
                 </div>

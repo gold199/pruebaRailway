@@ -41,6 +41,7 @@ async function getPublishers(req, res, next) {
       await redisClient.set("AllPublishers", JSON.stringify(publishers), {
         EX: 3600,
       });
+      res.locals.publishers = publishers;
     }
 
     next();
@@ -104,6 +105,12 @@ async function getPublisherById(req, res, next) {
 
     const pubRes = await apiClient.get(`/publishers/${id}`);
     console.log(pubRes.data);
+
+    if (pubRes.data.deleted_at) {
+      return res.status(404).render("errors/404", {
+        message: "Editorial no encontrada",
+      });
+    }
 
     if (!pubRes.data || !pubRes.data.id) {
       return res.status(404).render("errors/404", {

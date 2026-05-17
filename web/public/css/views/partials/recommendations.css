@@ -1,0 +1,267 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* --- FONDO BASE --- */
+body::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(252, 250, 247, 0.4);
+    z-index: -1;
+}
+
+/* --- CINEMATIC HERO (SPOTLIGHT) --- */
+.spotlight-hero {
+    position: relative;
+    border-radius: 20px;
+    overflow: hidden;
+    background: #0f172a;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    margin-bottom: 3rem;
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+}
+
+.spotlight-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.35;
+    filter: blur(15px) brightness(0.6);
+    transform: scale(1.1);
+    z-index: 1;
+}
+
+.spotlight-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(15,23,42,1) 0%, rgba(15,23,42,0.8) 40%, rgba(15,23,42,0.2) 100%);
+    z-index: 2;
+}
+
+.spotlight-content {
+    position: relative;
+    z-index: 3;
+    width: 100%;
+}
+
+.spotlight-title {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 800;
+    color: white;
+    line-height: 1.1;
+    letter-spacing: -1px;
+    margin-bottom: 1rem;
+    text-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.spotlight-desc {
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 1.1rem;
+    max-width: 600px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.spotlight-cover {
+    width: 100%;
+    max-width: 250px;
+    border-radius: 12px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.5);
+    transition: transform 0.3s ease;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.spotlight-cover:hover {
+    transform: scale(1.03) translateY(-5px);
+}
+
+/* Botón principal del Hero */
+.btn-spotlight {
+    background: white;
+    color: #0f172a;
+    font-weight: 700;
+    padding: 0.8rem 2rem;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    border: none;
+    transition: all 0.2s ease;
+}
+
+.btn-spotlight:hover {
+    background: rgba(255,255,255,0.9);
+    transform: scale(1.05);
+}
+
+/* --- CARRUSELES HORIZONTALES (ESTANTERÍAS) --- */
+.shelf-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--brand-teal);
+    margin-bottom: 1.5rem;
+    padding-left: 0.5rem;
+    border-left: 4px solid var(--brand-gold);
+}
+
+/* --- BOOTSTRAP CAROUSEL OVERRIDES --- */
+.carousel-control-prev,
+.carousel-control-next {
+    width: 45px;
+    height: 45px;
+    background-color: var(--brand-teal);
+    border-radius: 50%;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.8;
+    transition: all 0.3s ease;
+    z-index: 100;
+    border: none;
+}
+
+.carousel-control-prev { left: -15px; }
+.carousel-control-next { right: -15px; }
+
+@media (min-width: 768px) {
+    .carousel-control-prev { left: -30px; }
+    .carousel-control-next { right: -30px; }
+}
+
+.carousel-control-prev:hover,
+.carousel-control-next:hover {
+    background-color: var(--brand-gold);
+    opacity: 1;
+    transform: translateY(-50%) scale(1.1);
+}
+
+.carousel-control-prev-icon,
+.carousel-control-next-icon {
+    width: 20px;
+    height: 20px;
+}
+
+/* Estados Vacíos / Mensajes */
+.brand-alert {
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 8px 32px rgba(30, 64, 175, 0.08);
+    border-radius: 16px;
+    margin-bottom: 2rem;
+}
+
+/* Ocultar botones de tab antiguas si quedara alguno */
+.rec-tabs-container { display: none; }
+
+/* --- RESPONSIVE ADJUSTMENTS --- */
+@media (max-width: 991.98px) {
+    .spotlight-hero {
+        min-height: auto;
+        padding: 3rem 1.5rem !important;
+        text-align: center;
+        flex-direction: column !important;
+    }
+
+    .spotlight-overlay {
+        background: linear-gradient(180deg, rgba(15,23,42,0.6) 0%, rgba(15,23,42,0.95) 100%);
+    }
+
+    .spotlight-desc {
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .spotlight-content {
+        gap: 2rem !important;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .shelf-title {
+        font-size: 1.2rem;
+    }
+
+    .spotlight-title {
+        font-size: 1.8rem !important;
+    }
+
+    .spotlight-cover {
+        max-width: 180px;
+    }
+
+    .btn-spotlight {
+        padding: 0.6rem 1.5rem;
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .container {
+        padding-top: 1.5rem !important;
+    }
+
+    .spotlight-hero {
+        border-radius: 1.5rem;
+        margin-bottom: 2rem;
+    }
+}
+
+/* --- HERO INTEGRADO DE RECOMENDACIONES (TRUE BLUE & GOLD) --- */
+.recommendations-hero {
+    background: linear-gradient(135deg, #1e293b 0%, var(--brand-teal) 100%);
+    position: relative;
+    z-index: 1;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hero-overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: url('https://www.transparenttextures.com/patterns/cubes.png');
+    opacity: 0.1;
+    z-index: -1;
+}
+
+.bg-glass-white {
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    transition: all 0.3s ease;
+}
+
+.bg-glass-white:hover {
+    background: rgba(255, 255, 255, 1) !important;
+    color: var(--brand-teal) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+}
+
+.btn-white {
+    background: white !important;
+    color: var(--brand-teal) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    transition: all 0.3s ease;
+}
+
+.btn-white:hover {
+    background: #f8fafc !important;
+    color: var(--brand-teal) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+}

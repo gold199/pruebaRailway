@@ -68,13 +68,14 @@
                                 <div class="bg-teal-soft p-2 rounded-circle">
                                     <i class="bi bi-shield-check text-teal"></i>
                                 </div>
-                                <div class="small fw-600">Todas tus compras están protegidas por nuestro sistema de
-                                    garantía.</div>
+                                <div class="small fw-600">
+                                    <%= t('purchase_history.protected_purchases') %>
+                                </div>
                             </div>
                         </div>
                         <a href="/user/profile"
-                            class="btn btn-white rounded-pill px-4 py-3 fw-bold shadow-sm w-100 border d-flex align-items-center justify-content-center gap-2 transition-all">
-                            <i class="bi bi-person-circle text-teal"></i> Volver al Perfil
+                            class="btn bg-glass-white rounded-pill px-4 py-3 fw-bold shadow-sm w-100 border d-flex align-items-center justify-content-center gap-2 transition-all" style="color: var(--brand-teal);">
+                            <i class="bi bi-person-circle"></i> <%= t('favorites.profile_btn') %>
                         </a>
                     </div>
                 </div>
@@ -106,9 +107,9 @@
                                 statusKey='status_shipped' ; badgeClass='text-white' ; break; case 'ENTREGADO' :
                                 statusKey='status_delivered' ; badgeClass='bg-success text-white' ; break;
                                 case 'CANCELADO' : statusKey='status_cancelled' ; badgeClass='bg-danger text-white' ;
-                                break; case 'DEVOLUCION_PENDIENTE' : statusKey='status_devolution_pending' ;
+                                break; case 'DEVOLUCION_PENDIENTE' : statusKey='status_return_pending' ;
                                 badgeClass='bg-warning text-dark' ; break; case 'DEVOLUCION_RECHAZADA' :
-                                statusKey='status_devolution_rejected' ; badgeClass='bg-danger text-white' ; break;
+                                statusKey='status_return_rejected' ; badgeClass='bg-danger text-white' ; break;
                                 case 'DEVUELTO' : statusKey='status_returned' ; badgeClass='bg-success text-white' ;
                                 break; } %>
                                 <span class="badge rounded-pill status-badge mb-1 px-3 <%= badgeClass %>" <% if
@@ -169,7 +170,7 @@
                                                 <div class="alert alert-info py-2 px-3 rounded-pill mb-0 text-center"
                                                     style="font-size: 0.75rem;">
                                                     <i class="bi bi-clock-history me-1"></i>
-                                                    <%= t('purchase_history.return_pending') || 'Devolución en proceso'
+                                                    <%= t('purchase_history.status_return_pending') || 'Devolución en proceso'
                                                         %>
                                                 </div>
                                                 <% } %>
@@ -218,6 +219,39 @@
                     </div>
                 </div>
                 <% }) %>
+
+                <!-- ── Paginación Unificada ───────────────────────────── -->
+                <% if (totalPages > 1) { %>
+                    <nav class="mt-5 d-flex align-items-center justify-content-between flex-wrap gap-3" aria-label="Paginación de pedidos">
+                        <span class="text-muted small fw-bold text-uppercase" style="letter-spacing: 0.5px;">
+                            Página <strong><%= currentPage %></strong> de <strong><%= totalPages %></strong>
+                            &nbsp;·&nbsp; <strong><%= totalOrders %></strong> <%= t('purchase_history.total_orders').toLowerCase() %>
+                        </span>
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item <%= currentPage <= 1 ? 'disabled' : '' %>">
+                                <a class="page-link" href="/user/myOrders?page=<%= currentPage - 1 %>">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+                            <% for (let p = 1; p <= totalPages; p++) { %>
+                                <% if (totalPages <= 7 || p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1) { %>
+                                    <li class="page-item <%= currentPage == p ? 'active' : '' %>">
+                                        <a class="page-link" href="/user/myOrders?page=<%= p %>">
+                                            <%= p %>
+                                        </a>
+                                    </li>
+                                <% } else if (Math.abs(p - currentPage) === 2) { %>
+                                    <li class="page-item disabled"><span class="page-link bg-transparent border-0">…</span></li>
+                                <% } %>
+                            <% } %>
+                            <li class="page-item <%= currentPage >= totalPages ? 'disabled' : '' %>">
+                                <a class="page-link" href="/user/myOrders?page=<%= currentPage + 1 %>">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                <% } %>
                     <% } else { %>
                         <div class="text-center py-5 bg-white rounded-4 shadow-sm">
                             <i class="bi bi-cart-x mb-3 d-block"
@@ -246,8 +280,8 @@
                 </div>
                 <div class="modal-body py-4">
                     <p class="mb-0 text-muted" id="cancelModalBodyText">
-                        <%= t('purchase_history.cancel_modal_body').replace('{{id}}', '<span id="displayOrderId" class="fw-bold text-dark"></span>'
-                            ) %>
+                        <%- t('purchase_history.cancel_modal_body').replace('{{id}}', '<span id="displayOrderId" class="fw-bold text-dark"></span>' )
+                            %>
                     </p>
                 </div>
                 <div class="modal-footer border-0 pt-0">
@@ -277,8 +311,8 @@
                 </div>
                 <div class="modal-body py-4">
                     <p class="mb-3 text-muted">
-                        ¿Deseas solicitar la devolución del pedido #<span id="displayReturnOrderId"
-                            class="fw-bold text-dark"></span>?
+                        <%- t('purchase_history.return_modal_body').replace('{{id}}', '<span id="displayReturnOrderId" class="fw-bold text-dark"></span>' )
+                            %>
                     </p>
                     <div class="p-3 bg-light rounded-3 small text-muted">
                         <i class="bi bi-info-circle me-2"></i>

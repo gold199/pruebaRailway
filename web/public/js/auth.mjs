@@ -15,11 +15,11 @@ import {
 import axios from "https://cdn.jsdelivr.net/npm/axios@1.6.7/+esm";
 import { auth } from "./firebaseConfig.mjs";
 
-const API_URL = "http://https://pruebarailway2-production.up.railway.app/auth";
+const API_URL = "https://pruebarailway2-production.up.railway.app/auth";
 
 // Configuración centralizada de Axios
 const apiClient = axios.create({
-  baseURL: "http://https://pruebarailway2-production.up.railway.app",
+  baseURL: "https://pruebarailway2-production.up.railway.app",
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
@@ -166,7 +166,7 @@ export function initCheckout() {
     if (checkoutBtn) {
       checkoutBtn.disabled = false;
       if (checkoutSpinner) checkoutSpinner.classList.add("d-none");
-      if (checkoutText) checkoutText.textContent = "Confirmar y Pagar";
+      if (checkoutText) checkoutText.textContent = checkoutText.getAttribute('data-text-confirm');
     }
 
     // ESCUCHAMOS EL CLIC FINAL
